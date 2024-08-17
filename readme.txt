@@ -1,2 +1,7 @@
-Abstraction layer for the Canvas that allows you to "emulate"
-a framebuffer-like interface that is easy to interact with.
+# Framebuffer JS
+
+## Introduction
+
+Abstraction layer for the 2D Canvas API that allows you to
+work with the Canvas in a framebuffer-like interface that
+is simple and easy to understand.
