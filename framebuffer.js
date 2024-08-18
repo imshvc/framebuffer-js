@@ -1,9 +1,12 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 04:08 AM
+// Updated: 2024-08-18 06:44 AM
 
-// Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+/**
+ * Default Canvas Context Attributes
+ * Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+ */
 var FB_CANVAS_CONTEXT_ATTRIBUTES = {
   // A boolean value that indicates if the canvas contains an alpha channel.
   // If set to 'false', the browser now knows that the backdrop is always opaque,
@@ -34,11 +37,18 @@ const FB_IMAGEDATA_CHANNEL_G = 1
 const FB_IMAGEDATA_CHANNEL_B = 2
 const FB_IMAGEDATA_CHANNEL_A = 3
 
-// Resources created asynchronously
+/**
+ * Contains resources created asynchronously
+ */
 var fb_async_resources = {}
 
-// Create a Framebuffer Object
-function fb_create(width, height) {
+/**
+ * Create a Framebuffer Resource
+ * @param {Number} width Width
+ * @param {Number} height Height
+ * @returns {Object} Framebuffer Resource
+ */
+function fb_create(width = 0, height = 0) {
   // Convert to decimal
   width |= 0
   height |= 0
@@ -74,13 +84,20 @@ function fb_create(width, height) {
     '2d', FB_CANVAS_CONTEXT_ATTRIBUTES
   )
 
+  if (resource.context === null)
+    throw 'Canvas is not supported on this platform'
+
   resource.image = new ImageData(width, height)
 
   return resource
 }
 
-// Synchronize ImageData to the Canvas
-function fb_sync(resource) {
+/**
+ * Synchronize ImageData to the Canvas
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_sync(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -91,16 +108,30 @@ function fb_sync(resource) {
   return true
 }
 
-// Get X and Y position from bytes of a 32-bit image
-function fb_getpos(w, h, x, y) {
+/**
+ * Get X and Y position of a pixel in a 32-bit image
+ * @param {Number} w Width
+ * @param {Number} x X axis
+ * @param {Number} y Y axis
+ * @returns {Number} Index pointing at pixel on X and Y coordinates
+ */
+function fb_getpos(w = 0, x = 0, y = 0) {
   x = Math.round(x) * 4
   y = Math.round(y) * 4
 
   return w * y + x
 }
 
-// Set pixel color at XY coord
-function fb_set_pixel(resource, x, y, r, g, b) {
+/**
+ * Set pixel color at X and Y coordinates
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} x X axis
+ * @param {Number} y Y axis
+ * @param {Number} r Red channel
+ * @param {Number} g Green channel
+ * @param {Number} b Blue channel
+ */
+function fb_set_pixel(resource = null, x, y, r, g, b) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -109,28 +140,34 @@ function fb_set_pixel(resource, x, y, r, g, b) {
   if (resource.locked)
     return
 
-  // All values to decimals
+  // Convert to whole numbers
   x |= 0
   y |= 0
   r |= 0
   g |= 0
   b |= 0
 
-  let pos = fb_getpos(resource.width, resource.height, x, y)
+  let pos = fb_getpos(resource.width, x, y)
 
   resource.image.data[pos + FB_IMAGEDATA_CHANNEL_R] = r
   resource.image.data[pos + FB_IMAGEDATA_CHANNEL_G] = g
   resource.image.data[pos + FB_IMAGEDATA_CHANNEL_B] = b
 }
 
-// Get pixel color at XY coord
-function fb_get_pixel(resource, x, y, r, g, b) {
+/**
+ * Get pixel color at X and Y coordinates
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} x X axis
+ * @param {Number} y Y axis
+ * @returns {(Array|undefined)}
+ */
+function fb_get_pixel(resource = null, x, y) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
     return
 
-  let pos = fb_getpos(resource.width, resource.height, x, y)
+  let pos = fb_getpos(resource.width, x, y)
 
   return [
     resource.image.data[pos + FB_IMAGEDATA_CHANNEL_R],
@@ -139,8 +176,13 @@ function fb_get_pixel(resource, x, y, r, g, b) {
   ]
 }
 
-// Spawn resource to a container element
-function fb_spawn(resource, container = null) {
+/**
+ * Spawn resource to a container element
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Element} container Element to which we spawn
+ * @throws If resource or container are invalid
+ */
+function fb_spawn(resource = null, container = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -152,8 +194,16 @@ function fb_spawn(resource, container = null) {
   container.append(resource.canvas)
 }
 
-// Download resource image as file
-function fb_save(resource, filename = '0.png') {
+/**
+ * Download resource image as file
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {String} filename Name of saved file
+ * @returns {Boolean}
+ */
+function fb_save(
+  resource = null,
+  filename = '0.png'
+) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -167,17 +217,29 @@ function fb_save(resource, filename = '0.png') {
   return true
 }
 
-// Plot a rectangle
+/**
+ * Draw a rectangle
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} x X axis
+ * @param {Number} y Y axis
+ * @param {Number} w Width
+ * @param {Number} h Height
+ * @param {Number} r Red channel
+ * @param {Number} g Green channel
+ * @param {Number} b Blue channel
+ * @param {Boolean} fill Fill the area with color
+ * @returns {Boolean}
+ */
 function fb_rect(
-  resource,    // Framebuffer resource
-  x = 0,       // Position X
-  y = 0,       // Position Y
-  w = 10,      // Width
-  h = 10,      // Height
-  r = 255,     // Color channel Red
-  g = 255,     // Color channel Green
-  b = 255,     // Color channel Blue
-  fill = false // Fill the area with color
+  resource = null,
+  x = 0,
+  y = 0,
+  w = 10,
+  h = 10,
+  r = 255,
+  g = 255,
+  b = 255,
+  fill = false
 ) {
   resource = fb_resolve(resource)
 
@@ -212,20 +274,35 @@ function fb_rect(
   return true
 }
 
-// Plot a circle
+/**
+ * Draw a circle
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} x X axis
+ * @param {Number} y Y axis
+ * @param {Number} w Width
+ * @param {Number} h Height
+ * @param {Number} r Red channel
+ * @param {Number} g Green channel
+ * @param {Number} b Blue channel
+ * @param {Number} p Precision of line (clamped from 0.1 to 2) (ignored on fill)
+ * @param {Boolean} fill Fill the area with color
+ * @param {Boolean} center Treat X and Y coordinates as middle of the circle
+ * @param {Number} angles Across what angle to plot the circle
+ * @returns {Boolean}
+ */
 function fb_circle(
-  resource,       // Framebuffer resource
-  x,              // Position X
-  y,              // Position Y
-  w,              // Width
-  h,              // Height
-  r,              // Color channel Red
-  g,              // Color channel Green
-  b,              // Color channel Blue
-  p      = 1,     // Precision of line (clamped from 0.1 to 2) (ignored on fill)
-  fill   = false, // Fill the area with color
-  center = false, // Treat X and Y as the center point of the circle
-  angles = 360    // Across what angle to plot the circle
+  resource = null,      
+  x,             
+  y,             
+  w,             
+  h,             
+  r,             
+  g,             
+  b,             
+  p      = 1,    
+  fill   = false,
+  center = false,
+  angles = 360   
 ) {
   resource = fb_resolve(resource)
 
@@ -266,24 +343,36 @@ function fb_circle(
   return true
 }
 
-// Plot a line from point A to B
+/**
+ * Draw a line from point A to point B
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} x1 X axis (point A)
+ * @param {Number} y1 Y axis (point A)
+ * @param {Number} x2 X axis (point B)
+ * @param {Number} y2 Y axis (point B)
+ * @param {Number} r Red channel
+ * @param {Number} g Green channel
+ * @param {Number} b Blue channel
+ * @param {Number} p Precision of line (clamped from 0.1 to 2)
+ * @returns {Boolean}
+ */
 function fb_line(
-  resource, // Framebuffer resource
-  x1,       // Position X #1
-  y1,       // Position Y #1
-  x2,       // Position X #2
-  y2,       // Position Y #2
-  r = 255,  // Color channel Red
-  g = 255,  // Color channel Green
-  b = 255,  // Color channel Blue
-  p = 1     // Precision of line (clamped from 0.1 to 2)
+  resource = null, 
+  x1,       
+  y1,       
+  x2,       
+  y2,       
+  r = 255,  
+  g = 255,  
+  b = 255,  
+  p = 1     
 ) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
     return false
 
-  p = clamp(p, 0.1, 2) // NOTE: Should we even be clamping this value?
+  p = clamp(p, 0.1, 2)
   let x = x2 - x1
   let y = y2 - y1
   let l = Math.sqrt(x * x + y * y) * p
@@ -305,14 +394,26 @@ function fb_line(
   return true
 }
 
-// Clear everything from the bitmap (by default using Black color)
-// FIXME: Use Canvas' API to clear the buffer 'clearRect()'
+/**
+ * Clear the canvas (default color Black)
+ * @todo FIXME: Use Canvas' API 'clearRect()'
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} r Red channel
+ * @param {Number} g Green channel
+ * @param {Number} b Blue channel
+ * @returns {Boolean}
+ */
 function fb_clear(
-  resource, // Framebuffer resource
-  r = 0,    // Color channel Red
-  g = 0,    // Color channel Green
-  b = 0,    // Color channel Blue
+  resource = null,
+  r = 0,   
+  g = 0,   
+  b = 0,   
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return false
+
   for (let y = 0; y < resource.height; y++)
     for (let x = 0; x < resource.width; x++)
       fb_set_pixel(resource, x, y, r, g, b)
@@ -320,11 +421,13 @@ function fb_clear(
   return true
 }
 
-// Verify that the Framebuffer resource is valid
-function fb_valid(
-  resource = null // Framebuffer resource
-) {
-  // WARN: Do not resolve - infinite loop.
+/**
+ * Verify that the Framebuffer Resource is valid
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_valid(resource = null) {
+  // WARN: Do not resolve here - infinite loop.
 
   if (resource === null)
     return false
@@ -352,13 +455,15 @@ function fb_valid(
   return true
 }
 
-// Clone the resource
-function fb_copy(
-  resource, // Framebuffer resource
-  cri = 0,  // Channel Red Index
-  cgi = 1,  // Channel Green Index
-  cbi = 2   // Channel Blue Index
-) {
+/**
+ * Clone the resource
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} cri Red channel index (default 0)
+ * @param {Number} cgi Green channel index (default 1)
+ * @param {Number} cbi Blue channel index (default 2)
+ * @returns {(Boolean|Object)} Framebuffer Resource
+ */
+function fb_copy(resource = null, cri = 0, cgi = 1, cbi = 2) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -366,6 +471,7 @@ function fb_copy(
 
   let copy = fb_create(resource.width, resource.height)
 
+  // FIXME: Could we use structuredClone on ImageData (?)
   for (let i = 0, j = resource.image.data.length; i < j;) {
     copy.image.data[i + 0] = resource.image.data[i + cri]
     copy.image.data[i + 1] = resource.image.data[i + cgi]
@@ -379,7 +485,13 @@ function fb_copy(
   return copy
 }
 
-// Create a resource from an asynchronously loaded image
+/**
+ * Create a resource from an asynchronously loaded image
+ * @param {String} url URL to the image
+ * @param {Number} width Resource width (-1 for auto)
+ * @param {Number} height Resource height (-1 for auto)
+ * @returns {(null|String)} Framebuffer Resource Identifier
+ */
 function fb_load(
   url = null,  // URL of the image
   width = -1,  // Resource width (-1 for auto)
@@ -415,7 +527,11 @@ function fb_load(
   return 'id:' + id
 }
 
-// Resolve a resource id to its object
+/**
+ * Resolve a Framebuffer Resource Identifier to its object
+ * @param {String} id Framebuffer Resource Identifier
+ * @returns {(null|Object)} Framebuffer Resource
+ */
 function fb_resolve(id = null) {
   // Return actual resources back (expected behavior)
   if (fb_valid(id))
@@ -441,21 +557,36 @@ function fb_resolve(id = null) {
   return null
 }
 
-// Draw the contents from a resource child to the resource parent
-// FIXME: Replace fb_set_pixel with Canvas' built-in 'drawImage' equivalent
+/**
+ * Draw the contents from a resource child to the resource parent
+ * @todo FIXME: Replace fb_set_pixel with Canvas' built-in 'drawImage' equivalent
+ * @param {(Object|String)} resource_p Framebuffer Resource we're drawing to (parent)
+ * @param {(Object|String)} resource_c Framebuffer Resource being drawn (child)
+ * @param {Number} x X axis
+ * @param {Number} y Y axis
+ * @param {Number} w Width (-1 is child's width)
+ * @param {Number} h Height (-1 is child's height)
+ * @param {Number} ox X axis offset
+ * @param {Number} oy Y axis offset
+ * @param {Boolean} transparent Treat tX colors as transparency
+ * @param {Number} tr Red channel as transparency (-1 is none)
+ * @param {Number} tg Green channel as transparency (-1 is none)
+ * @param {Number} tb Blue channel as transparency (-1 is none)
+ * @returns {Boolean}
+ */
 function fb_draw(
-  resource_p,          // Framebuffer resource (parent)
-  resource_c,          // Framebuffer resource (child)
-  x = 0,               // Position X
-  y = 0,               // Position Y
-  w = -1,              // Width  (-1 = child's width)
-  h = -1,              // Height (-1 = child's height)
-  ox = 0,              // Offset to add to the X position of child
-  oy = 0,              // Offset to add to the Y position of child
-  transparent = false, // Handle tr, tg and tb colors as transparency
-  tr = -1,             // Red channel to be used as transparency
-  tg = -1,             // Green channel to be used as transparency
-  tb = -1              // Blue channel to be used as transparency
+  resource_p,          
+  resource_c,          
+  x = 0,               
+  y = 0,               
+  w = -1,              
+  h = -1,              
+  ox = 0,              
+  oy = 0,              
+  transparent = false, 
+  tr = -1,             
+  tg = -1,             
+  tb = -1              
 ) {
   resource_p = fb_resolve(resource_p)
   resource_c = fb_resolve(resource_c)
@@ -497,16 +628,26 @@ function fb_draw(
   return true
 }
 
-// Fill the area with the given color starting from x,y until all
-// occurences of the background color have been replaced in that area.
+/**
+ * Fill the area with the given color starting from x,y until all
+ * occurences of the background color have been replaced in that area.
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} x X axis
+ * @param {Number} y Y axis
+ * @param {Number} r Red channel
+ * @param {Number} g Green channel
+ * @param {Number} b Blue channel
+ * @param {(null|Function)} callback Callback function (default fb_set_pixel)
+ * @returns {Boolean}
+ */
 function fb_fill(
-  resource,               // Framebuffer resource
-  x,                      // Position X
-  y,                      // Position Y
-  r,                      // Color channel Red
-  g,                      // Color channel Green
-  b,                      // Color channel Blue
-  callback = fb_set_pixel // Callback function (defaults to fb_set_pixel)
+  resource = null,               
+  x,                      
+  y,                      
+  r,                      
+  g,                      
+  b,                      
+  callback = fb_set_pixel 
 ) {
   resource = fb_resolve(resource)
 
@@ -549,11 +690,13 @@ function fb_fill(
   return true
 }
 
-// Retrieve a specific color channel from a resource
-function fb_get_channel(
-  resource,   // Framebuffer resource
-  channel = 0 // Channel index (0=Red, 1=Green, 2=Blue) (default 0)
-) {
+/**
+ * Retrieve a specific color channel from a resource
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} channel Channel index (0=Red, 1=Green, 2=Blue) (default 0)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_get_channel(resource = null, channel = 0) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -563,10 +706,12 @@ function fb_get_channel(
   return fb_copy(resource, channel, channel, channel)
 }
 
-// Flip the image horizontally (X axis)
-function fb_flip_x(
-  resource // Framebuffer resource
-) {
+/**
+ * Flip image horizontally (X axis)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_flip_x(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -589,10 +734,12 @@ function fb_flip_x(
   return resource_new
 }
 
-// Flip the image vertically (Y axis)
-function fb_flip_y(
-  resource // Framebuffer resource
-) {
+/**
+ * Flip image vertically (Y axis)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_flip_y(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -615,10 +762,12 @@ function fb_flip_y(
   return resource_new
 }
 
-// Rotate image to the right
-function fb_rotate_right(
-  resource // Framebuffer resource
-) {
+/**
+ * Rotate image right (90 degrees clockwise)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_rotate_right(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -641,10 +790,12 @@ function fb_rotate_right(
   return resource_new
 }
 
-// Rotate image to the left
-function fb_rotate_left(
-  resource // Framebuffer resource
-) {
+/**
+ * Rotate image left (90 degrees counterclockwise)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_rotate_left(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -667,16 +818,18 @@ function fb_rotate_left(
   return resource_new
 }
 
-// Replace a specific color in the image
-function fb_replace_color(
-  resource, // Framebuffer resource
-  pr,       // Color channel Red   (parent)
-  pg,       // Color channel Green (parent)
-  pb,       // Color channel Blue  (parent)
-  cr,       // Color channel Red   (child)
-  cg,       // Color channel Green (child)
-  cb        // Color channel Blue  (child)
-) {
+/**
+ * Replace a specific color in the image
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} pr Red channel (parent)
+ * @param {Number} pg Green channel (parent)
+ * @param {Number} pb Blue channel (parent)
+ * @param {Number} cr Red channel (child)
+ * @param {Number} cg Green channel (child)
+ * @param {Number} cb Blue channel (child)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_replace_color(resource = null, pr, pg, pb, cr, cg, cb) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -698,10 +851,12 @@ function fb_replace_color(
   return resource_new
 }
 
-// Invert colors of an image
-function fb_color_invert(
-  resource // Framebuffer resource
-) {
+/**
+ * Invert colors of an image
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_color_invert(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -727,10 +882,12 @@ function fb_color_invert(
   return resource_new
 }
 
-// Turn colors to grayscale in an image
-function fb_color_grayscale(
-  resource // Framebuffer resource
-) {
+/**
+ * Convert image to grayscale
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_color_grayscale(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -754,10 +911,12 @@ function fb_color_grayscale(
   return resource_new
 }
 
-// Convert an image to appear like a 1-bit image
-function fb_color_1bit(
-  resource // Framebuffer resource
-) {
+/**
+ * Convert image to 1-bit
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_color_1bit(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -781,11 +940,13 @@ function fb_color_1bit(
   return resource_new
 }
 
-// Add grayscale noise to an image
-function fb_noise_grayscale(
-  resource,   // Framebuffer resource
-  scale = 0.1 // Amount of noise to add ranging from 0.0 to 10.0
-) {
+/**
+ * Add grayscale noise to an image
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} scale Amount of noise to add ranging from 0.0 to 10.0 (default 0.1)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_noise_grayscale(resource = null, scale = 0.1) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -816,11 +977,13 @@ function fb_noise_grayscale(
   return resource_new
 }
 
-// Add RGB noise to an image
-function fb_noise_rgb(
-  resource,   // Framebuffer resource
-  scale = 0.1 // Amount of noise to add ranging from 0.0 to 10.0
-) {
+/**
+ * Add RGB noise to an image
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} scale Amount of noise to add ranging from 0.0 to 10.0 (default 0.1)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_noise_rgb(resource = null, scale = 0.1) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -854,20 +1017,26 @@ function fb_noise_rgb(
   return resource_new
 }
 
-// FIXME: See if 'Row- and column-major order' matters here.
-//        Ideally we'd want to loop over in row-major order
-//        X loop inside Y
-//
-// Apply a convolution matrix to an image.
-// More information about that here:
-//  - https://en.wikipedia.org/wiki/Kernel_(image_processing)
-//  - https://en.wikipedia.org/wiki/Convolution
-//  - https://docs.gimp.org/2.8/en/plug-in-convmatrix.html
+/**
+ * Apply a convolution matrix to an image
+ * More information:
+ *  - https://en.wikipedia.org/wiki/Kernel_(image_processing)
+ *  - https://en.wikipedia.org/wiki/Convolution
+ *  - https://docs.gimp.org/2.8/en/plug-in-convmatrix.html
+ * @todo: FIXME: See if 'Row- and column-major order' matters here.
+ *               Ideally we'd want to loop over in row-major order
+ *               i.e. (X loop inside Y)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Array} matrix Convolution matrix (3x3 or 5x5)
+ * @param {Number} divisor How much to divide the average result
+ * @param {Number} offset Value to add to the quotient (division result)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
 function fb_convolution_matrix(
-  resource,                             // Framebuffer resource
-  matrix = [0, 0, 0, 0, 0, 0, 0, 0, 0], // Convolution matrix (3x3 and 5x5 only)
-  divisor = 1,                          // How much to divide the average result
-  offset = 0                            // Value to add to the quotient (division result)
+  resource = null,                             
+  matrix = [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+  divisor = 1,                          
+  offset = 0                            
 ) {
   resource = fb_resolve(resource)
 
@@ -1151,10 +1320,12 @@ function fb_convolution_matrix(
   return resource_new
 }
 
-// Sharpen an image
-function fb_sharpen(
-  resource // Framebuffer resource
-) {
+/**
+ * Sharpen the image
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_sharpen(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1174,12 +1345,14 @@ function fb_sharpen(
   return resource_new
 }
 
-// Resize an image (using nearest neighbor)
-function fb_resize(
-  resource, // Framebuffer resource
-  w,        // Width  (Rounded to nearest place)
-  h         // Height (Rounded to nearest place)
-) {
+/**
+ * Resize the image (using nearest neighbor)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} w Width (rounded to nearest place)
+ * @param {Number} h Height (rounded to nearest place)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_resize(resource = null, w = 0, h = 0) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1190,7 +1363,7 @@ function fb_resize(
 
   // If the dimensions have not changed,
   // return the affectee resource
-  if (w == resource.width && h == resource.height)
+  if (w == 0 || w == resource.width && h == 0 || h == resource.height)
     return resource
 
   let resource_new = fb_create(w, h)
@@ -1202,23 +1375,11 @@ function fb_resize(
 
   for (let x = 0; x < w; x++) {
     for (let y = 0; y < h; y++) {
-      let c = fb_get_pixel(
-        resource,
-        xd * x,
-        yd * y
-      )
+      let c = fb_get_pixel(resource, xd * x, yd * y)
 
       for (let i = 0; i < xd; i += xd) {
         for (let j = 0; j < yd; j += yd) {
-          fb_set_pixel(
-            resource_new,
-            x + i,
-            y + j,
-            c[0],
-            c[1],
-            c[2],
-            255
-          )
+          fb_set_pixel(resource_new, x + i, y + j, c[0], c[1], c[2], 255)
         }
       }
     }
@@ -1227,18 +1388,20 @@ function fb_resize(
   return resource_new
 }
 
-// Pixelate an image
-function fb_pixelate(
-  resource,  // Framebuffer resource
-  factor = 2 // How much to divide image dimensions before upsampling (default 2, min 1)
-) {
+/**
+ * Pixelate an image
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} factor How much to divide image dimensions before upsampling (default 2, min 1)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_pixelate(resource = null, factor = 2) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
     return null
 
   // Factor min can be 1
-  factor = clamp(factor, 1) | 0
+  factor = clamp(factor, 1) | 0 // FIXME: Is this correct?
 
   // If factor is 1 return the affectee resource
   if (factor == 1)
@@ -1261,34 +1424,37 @@ function fb_pixelate(
   return resource_new
 }
 
-// Crop an image.
-//
-// In Mode 1, X1 and Y1 cannot be bigger than X2 and Y2 respectively.
-// X1 and Y1 define Point #1 on the image which is the starting point
-// and X2 and Y2 define Point #2 which is the ending point.
-// All values between those 2 points will be the returned resource
-// that contains the pixel data cropped within that area.
-//
-// If X1 or Y1 are equal to their neighboring counterparts, then the
-// values of X2 or Y2 are increment by 1.
-// If X1 is 42 and X2 is 42 then X2 will be 43 as we cannot return
-// a cropped image if the 2 points fall on the same exact coordinate i.e.
-// we cannot have an image whose sides are 0.
-//
-// Mode 2 overrides the resource_new width and height by treating
-// X2 and Y2 as the dimensions and not the 2nd point on the image.
-//
-// If the width or height exceed the boundary of the affectee resource
-// then the value that fb_get_pixel() returns by default when out of
-// bounds will be written to the copy resource.
-function fb_crop(
-  resource, // Framebuffer resource
-  x1   = 0, // Position X #1
-  y1   = 0, // Position Y #1
-  x2   = 1, // Position X #2 (Mode 2 uses it as width)
-  y2   = 1, // Position Y #2 (Mode 2 uses it as height)
-  mode = 0  // If 1, values [x2, y2] are used as width and height of the returned resource
-) {
+/**
+ * Crop an image.
+ *
+ * In Mode 1, X1 and Y1 cannot be bigger than X2 and Y2 respectively.
+ * X1 and Y1 define Point #1 on the image which is the starting point
+ * and X2 and Y2 define Point #2 which is the ending point.
+ * All values between those 2 points will be the returned resource
+ * that contains the pixel data cropped within that area.
+ *
+ * If X1 or Y1 are equal to their neighboring counterparts, then the
+ * values of X2 or Y2 are increment by 1.
+ * If X1 is 42 and X2 is 42 then X2 will be 43 as we cannot return
+ * a cropped image if the 2 points fall on the same exact coordinate i.e.
+ * we cannot have an image whose sides are 0.
+ *
+ * Mode 2 overrides the resource_new width and height by treating
+ * X2 and Y2 as the dimensions and not the 2nd point on the image.
+ *
+ * If the width or height exceed the boundary of the affectee resource
+ * then the value that fb_get_pixel() returns by default when out of
+ * bounds will be written to the copy resource.
+ *
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} x1 X axis (Point 1)
+ * @param {Number} y1 Y axis (Point 1)
+ * @param {Number} x2 X axis (Point 2)
+ * @param {Number} y2 Y axis (Point 2)
+ * @param {Number} mode If 1, values [x2, y2] are used as width and height
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_crop(resource = null, x1 = 0, y1 = 0, x2 = 1, y2 = 1, mode = 0) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1334,7 +1500,7 @@ function fb_crop(
     h = (y2 - y1) | 0
   }
 
-  let resource_new = fb_create(w, h, resource.canvas)
+  let resource_new = fb_create(w, h)
   let mx = w + x1
   let my = h + y1
 
@@ -1355,11 +1521,13 @@ function fb_crop(
   return resource_new
 }
 
-// Detect edges in an image
-function fb_detect_edge(
-  resource, // Framebuffer resource
-  mode = 0  // Available modes range from 0 to 2
-) {
+/**
+ * Detect edges in an image
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} mode Available modes [0..2]
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_detect_edge(resource = null, mode = 0) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1402,11 +1570,13 @@ function fb_detect_edge(
   return resource_new
 }
 
-// Box blur
-function fb_blur_box(
-  resource, // Framebuffer resource
-  max = 1   // How many times to call the convolution matrix function (min 1)
-) {
+/**
+ * Box blur
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} max How many times to call the convolution matrix function (min 1)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_blur_box(resource = null, max = 1) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1429,11 +1599,13 @@ function fb_blur_box(
   return resource_new
 }
 
-// Gaussian blur
-function fb_blur_gaussian(
-  resource, // Framebuffer resource
-  max = 1   // How many times to call the convolution matrix function (min 1)
-) {
+/**
+ * Gaussian blur
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} max How many times to call the convolution matrix function (min 1)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_blur_gaussian(resource = null, max = 1) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1456,11 +1628,13 @@ function fb_blur_gaussian(
   return resource_new
 }
 
-// Emboss
-function fb_emboss(
-  resource, // Framebuffer resource
-  power = 1 // How many times to apply the convolution matrix (min 0.01)
-) {
+/**
+ * Emboss
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @param {Number} power How many times to apply the convolution matrix (min 0.01)
+ * @returns {(null|Object)} Framebuffer Resource
+ */
+function fb_emboss(resource = null, power = 1) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1482,7 +1656,10 @@ function fb_emboss(
   return resource_new
 }
 
-// Generate a unique resource id
+/**
+ * Generate a unique Framebuffer Resource Identifier
+ * @returns {String} Framebuffer Resource Identifier
+ */
 function fb_gen_resource_id() {
   let chars = 'abcdef0123456789'
   let chars_len = chars.length
@@ -1495,8 +1672,12 @@ function fb_gen_resource_id() {
   return buffer
 }
 
-// Block modifications to the resource
-function fb_lock(resource) {
+/**
+ * Block modifications to the Framebuffer Resource (lock)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_lock(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1506,8 +1687,12 @@ function fb_lock(resource) {
   return true
 }
 
-// Allow modifications to the resource
-function fb_unlock(resource) {
+/**
+ * Allow modifications to the Framebuffer Resource (unlock)
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_unlock(resource = null) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
@@ -1517,45 +1702,81 @@ function fb_unlock(resource) {
   return true
 }
 
-// Ensure the resource is loaded
-function fb_loaded(resource) {
+/**
+ * Ensure the resource is loaded
+ * @param {(Object|String)} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_loaded(resource = null) {
   resource = fb_resolve(resource)
   return fb_valid(resource) && resource.loaded
 }
 
-// Clamps a value between low and high
+/**
+ * Clamp a value between low and high
+ * @param {Number} v Value
+ * @param {Number} l Lowest possible value
+ * @param {Number} h Highest possible value
+ * @returns {Number} Clamped value
+ */
 function clamp(v, l, h) {
   if (l > v) return l
   if (h < v) return h
              return v
 }
 
-// Returns a Unix timestamp
+/**
+ * Return a UNIX timestamp
+ * @returns {Number}
+ */
 function time() {
-  return Number(Date.now() / 1000) | 0
+  return (+Date.now() / 1000) | 0
 }
 
-// Returns a Unix timestamp with miliseconds
+/**
+ * Return a UNIX timestamp with miliseconds
+ * @returns {Number}
+ */
 function time_precise() {
-  return Date.now()
+  return +Date.now()
 }
 
-// Returns true if N is in range of A and B
+/**
+ * Returns true if N is in range of A and B
+ * @param {Number} n Number
+ * @param {Number} a 1st Number
+ * @param {Number} b 2nd Number
+ * @returns {Boolean}
+ */
 function in_range(n, a, b) {
   return (n >= a && n <= b)
 }
 
-// Linear interpolation
+/**
+ * Linear interpolation
+ * @param {Number} a Point A
+ * @param {Number} b Point B
+ * @param {Number} t Time
+ * @returns {Number}
+ */
 function lerp(a, b, t) {
   return a + (b - a) * t
 }
 
-// Degree to radian
+/**
+ * Degree to radian
+ * @param {Number} deg Degrees
+ * @returns {Number} Radians
+ */
 function deg2rad(deg) {
   return deg * (Math.PI / 180)
 }
 
-// Radian to degree
+/**
+ * Radian to degree
+ * @param {Number} rad Radians
+ * @returns {Number} Degrees
+ */
 function rad2deg(rad) {
   return rad * (180 / Math.PI)
 }
