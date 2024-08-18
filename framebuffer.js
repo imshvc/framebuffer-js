@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 08:25 AM
+// Updated: 2024-08-18 09:34 AM
 
 /**
  * Default Canvas Context Attributes
@@ -292,18 +292,18 @@ function fb_rect(
  * @returns {Boolean}
  */
 function fb_circle(
-  resource = null,      
-  x,             
-  y,             
-  w,             
-  h,             
-  r,             
-  g,             
-  b,             
-  p      = 1,    
+  resource = null,
+  x,
+  y,
+  w,
+  h,
+  r,
+  g,
+  b,
+  p      = 1,
   fill   = false,
   center = false,
-  angles = 360   
+  angles = 360
 ) {
   resource = fb_resolve(resource)
 
@@ -358,15 +358,15 @@ function fb_circle(
  * @returns {Boolean}
  */
 function fb_line(
-  resource = null, 
-  x1,       
-  y1,       
-  x2,       
-  y2,       
-  r = 255,  
-  g = 255,  
-  b = 255,  
-  p = 1     
+  resource = null,
+  x1,
+  y1,
+  x2,
+  y2,
+  r = 255,
+  g = 255,
+  b = 255,
+  p = 1
 ) {
   resource = fb_resolve(resource)
 
@@ -574,24 +574,25 @@ function fb_resolve(id = null) {
  * @returns {Boolean}
  */
 function fb_draw(
-  resource_p,          
-  resource_c,          
-  x = 0,               
-  y = 0,               
-  w = -1,              
-  h = -1,              
-  ox = 0,              
-  oy = 0,              
-  transparent = false, 
-  tr = -1,             
-  tg = -1,             
-  tb = -1              
+  resource_p,
+  resource_c,
+  x = 0,
+  y = 0,
+  w = -1,
+  h = -1,
+  ox = 0,
+  oy = 0,
+  transparent = false,
+  tr = -1,
+  tg = -1,
+  tb = -1
 ) {
   resource_p = fb_resolve(resource_p)
-  resource_c = fb_resolve(resource_c)
 
   if (!fb_valid(resource_p))
     return false
+
+  resource_c = fb_resolve(resource_c)
 
   if (!fb_valid(resource_c))
     return false
@@ -640,13 +641,13 @@ function fb_draw(
  * @returns {Boolean}
  */
 function fb_fill(
-  resource = null,               
-  x,                      
-  y,                      
-  r,                      
-  g,                      
-  b,                      
-  callback = fb_set_pixel 
+  resource = null,
+  x,
+  y,
+  r,
+  g,
+  b,
+  callback = fb_set_pixel
 ) {
   resource = fb_resolve(resource)
 
@@ -1032,10 +1033,10 @@ function fb_noise_rgb(resource = null, scale = 0.1) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_convolution_matrix(
-  resource = null,                             
-  matrix = [0, 0, 0, 0, 0, 0, 0, 0, 0], 
-  divisor = 1,                          
-  offset = 0                            
+  resource = null,
+  matrix = [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  divisor = 1,
+  offset = 0
 ) {
   resource = fb_resolve(resource)
 
@@ -1709,6 +1710,48 @@ function fb_unlock(resource = null) {
 function fb_loaded(resource = null) {
   resource = fb_resolve(resource)
   return fb_valid(resource) && resource.loaded
+}
+
+/**
+ * Replace a Framebuffer Resource with a different one
+ * This function synchronizes automatically
+ * @param {(Object|String)} resource_p Framebuffer Resource (parent)
+ * @param {(Object|String)} resource_c Framebuffer Resource (child)
+ * @return {Boolean}
+ */
+function fb_replace(resource_p = null, resource_c = null) {
+  resource_p = fb_resolve(resource_p)
+
+  if (!fb_valid(resource_p))
+    return false
+
+  resource_c = fb_resolve(resource_c)
+
+  if (!fb_valid(resource_c))
+    return false
+
+  let cw = resource_c.width
+  let ch = resource_c.height
+
+  resource_p.canvas.width = cw
+  resource_p.canvas.height = ch
+  resource_p.width = cw
+  resource_p.height = ch
+
+  // Synchronize
+  resource_p.context.putImageData(resource_c.image, 0, 0)
+
+  resource_p.image = new ImageData(cw, ch)
+  resource_p.image.data.fill(255)
+
+  for (let i = 0; i < resource_c.image.data.length;) {
+    resource_p.image.data[i + FB_IMAGEDATA_CHANNEL_R] = resource_c.image.data[i + FB_IMAGEDATA_CHANNEL_R]
+    resource_p.image.data[i + FB_IMAGEDATA_CHANNEL_G] = resource_c.image.data[i + FB_IMAGEDATA_CHANNEL_G]
+    resource_p.image.data[i + FB_IMAGEDATA_CHANNEL_B] = resource_c.image.data[i + FB_IMAGEDATA_CHANNEL_B]
+    i += 4
+  }
+
+  return true
 }
 
 /**
