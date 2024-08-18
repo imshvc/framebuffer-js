@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 03:23 AM
+// Updated: 2024-08-18 03:41 AM
 
 // Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
 var FB_CANVAS_CONTEXT_ATTRIBUTES = {
@@ -89,17 +89,20 @@ function fb_create(width, height) {
 
 // Synchronize ImageData to the Canvas
 function fb_sync(resource) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return false
+
   resource.context.putImageData(resource.image, 0, 0)
+
+  return true
 }
 
 // Get X and Y position from bytes of a 32-bit image
-function fb_getpos(w, h, x, y, flip = false) {
+function fb_getpos(w, h, x, y) {
   x = Math.round(x) * 4
   y = Math.round(y) * 4
-
-  // flip the Y axis upside-down
-  if (flip)
-    y = Math.abs(y - (h * 4) + 4)
 
   return w * y + x
 }
@@ -107,6 +110,9 @@ function fb_getpos(w, h, x, y, flip = false) {
 // Set pixel color at XY coord
 function fb_set_pixel(resource, x, y, r, g, b) {
   resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return
 
   if (resource.locked)
     return
@@ -129,6 +135,9 @@ function fb_set_pixel(resource, x, y, r, g, b) {
 function fb_get_pixel(resource, x, y, r, g, b) {
   resource = fb_resolve(resource)
 
+  if (!fb_valid(resource))
+    return
+
   let pos = fb_getpos(resource.width, resource.height, x, y)
 
   return [
@@ -140,7 +149,12 @@ function fb_get_pixel(resource, x, y, r, g, b) {
 
 // Spawn resource to a container element
 function fb_spawn(resource, container = null) {
-  if (container === null)
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    throw 'fb_spawn expects resource to be a Framebuffer Resource'
+
+  if (container === null || !(container instanceof Element))
     throw 'fb_spawn expects container to be an element (got null)'
 
   container.append(resource.canvas)
@@ -148,10 +162,17 @@ function fb_spawn(resource, container = null) {
 
 // Download resource image as file
 function fb_save(resource, filename = '0.png') {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return false
+
   let anchor = document.createElement('a')
   anchor.href = resource.canvas.toDataURL()
   anchor.download = filename
   anchor.click()
+
+  return true
 }
 
 // Plot a rectangle
@@ -166,6 +187,11 @@ function fb_rect(
   b = 255,     // Color channel Blue
   fill = false // Fill the area with color
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return false
+
   if (fill) {
     for (let y2 = y; y2 < h + y; y2++) {
       for (let x2 = x; x2 < w + x; x2++) {
@@ -209,11 +235,16 @@ function fb_circle(
   center = false, // Treat X and Y as the center point of the circle
   angles = 360    // Across what angle to plot the circle
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return false
+
   let radian = w / 2
 
   if (!fill) {
     p = 1 / p
-    p = clamp(p, 0.5, 10) // clamped from 0.1 to 2
+    p = clamp(p, 0.5, 10) // clamped from 0.5 to 10
     p -= .5
   }
 
@@ -255,6 +286,11 @@ function fb_line(
   b = 255,  // Color channel Blue
   p = 1     // Precision of line (clamped from 0.1 to 2)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return false
+
   p = clamp(p, 0.1, 2) // NOTE: Should we even be clamping this value?
   let x = x2 - x1
   let y = y2 - y1
@@ -296,6 +332,8 @@ function fb_clear(
 function fb_valid(
   resource = null // Framebuffer resource
 ) {
+  // WARN: Do not resolve - infinite loop.
+
   if (resource === null)
     return false
 
@@ -329,6 +367,8 @@ function fb_copy(
   cgi = 1,  // Channel Green Index
   cbi = 2   // Channel Blue Index
 ) {
+  resource = fb_resolve(resource)
+
   if (!fb_valid(resource))
     return false
 
@@ -428,12 +468,18 @@ function fb_draw(
   resource_p = fb_resolve(resource_p)
   resource_c = fb_resolve(resource_c)
 
+  if (!fb_valid(resource_p))
+    return false
+
+  if (!fb_valid(resource_c))
+    return false
+
   w = clamp(w, -1, resource_c.width) | 0
   h = clamp(h, -1, resource_c.height) | 0
 
   // Don't draw
   if (w == 0 && h == 0)
-    return
+    return false
 
   // If width or height are less than or equal to
   // zero we assign each the child's dimensions
@@ -470,6 +516,11 @@ function fb_fill(
   b,                      // Color channel Blue
   callback = fb_set_pixel // Callback function (defaults to fb_set_pixel)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return false
+
   let fill_stack = []
   fill_stack.push([x, y])
 
@@ -480,7 +531,7 @@ function fb_fill(
 
   // Let's not shoot ourselves in the foot
   if (bg_color[0] == r && bg_color[1] == g && bg_color[2] == b)
-    return
+    return false
 
   while (fill_stack.length > 0) {
     let [x, y] = fill_stack.pop()
@@ -511,6 +562,11 @@ function fb_get_channel(
   resource,   // Framebuffer resource
   channel = 0 // Channel index (0=Red, 1=Green, 2=Blue) (default 0)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   channel = clamp(channel, 0, 2)
   return fb_copy(resource, channel, channel, channel)
 }
@@ -519,6 +575,11 @@ function fb_get_channel(
 function fb_flip_x(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_create(width, height)
@@ -540,6 +601,11 @@ function fb_flip_x(
 function fb_flip_y(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_create(width, height)
@@ -561,6 +627,11 @@ function fb_flip_y(
 function fb_rotate_right(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_create(height, width)
@@ -582,6 +653,11 @@ function fb_rotate_right(
 function fb_rotate_left(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_create(height, width)
@@ -609,6 +685,11 @@ function fb_replace_color(
   cg,       // Color channel Green (child)
   cb        // Color channel Blue  (child)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_copy(resource)
@@ -629,6 +710,11 @@ function fb_replace_color(
 function fb_color_invert(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_copy(resource)
@@ -653,6 +739,11 @@ function fb_color_invert(
 function fb_color_grayscale(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_create(width, height)
@@ -675,6 +766,11 @@ function fb_color_grayscale(
 function fb_color_1bit(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let width = resource.width
   let height = resource.height
   let resource_new = fb_create(width, height)
@@ -698,6 +794,11 @@ function fb_noise_grayscale(
   resource,   // Framebuffer resource
   scale = 0.1 // Amount of noise to add ranging from 0.0 to 10.0
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   scale = clamp(scale, 0, 10)
 
   if (scale == 0)
@@ -728,6 +829,11 @@ function fb_noise_rgb(
   resource,   // Framebuffer resource
   scale = 0.1 // Amount of noise to add ranging from 0.0 to 10.0
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   scale = clamp(scale, 0, 10)
 
   if (scale == 0)
@@ -771,8 +877,13 @@ function fb_convolution_matrix(
   divisor = 1,                          // How much to divide the average result
   offset = 0                            // Value to add to the quotient (division result)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   if (matrix.length != 9 && matrix.length != 25)
-    throw("Convolution matrix must be of size 3x3 (9) or 5x5 (25)")
+    throw 'Convolution matrix must be of size 3x3 (9) or 5x5 (25)'
 
   let resource_new = fb_copy(resource)
   let w = resource.width
@@ -1052,6 +1163,11 @@ function fb_convolution_matrix(
 function fb_sharpen(
   resource // Framebuffer resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let resource_new = fb_copy(resource)
 
   resource_new = fb_convolution_matrix(
@@ -1072,6 +1188,11 @@ function fb_resize(
   w,        // Width  (Rounded to nearest place)
   h         // Height (Rounded to nearest place)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   w |= 0
   h |= 0
 
@@ -1080,7 +1201,7 @@ function fb_resize(
   if (w == resource.width && h == resource.height)
     return resource
 
-  let resource_new = fb_create(w, h, resource.canvas)
+  let resource_new = fb_create(w, h)
 
   // Difference values between resource
   // and resource_new dimensions
@@ -1119,6 +1240,11 @@ function fb_pixelate(
   resource,  // Framebuffer resource
   factor = 2 // How much to divide image dimensions before upsampling (default 2, min 1)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   // Factor min can be 1
   factor = clamp(factor, 1) | 0
 
@@ -1171,6 +1297,11 @@ function fb_crop(
   y2   = 1, // Position Y #2 (Mode 2 uses it as height)
   mode = 0  // If 1, values [x2, y2] are used as width and height of the returned resource
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   // FIXME: Maybe we can yield better performance if we implement this ourselves in bitwise?
   x1 = Math.abs(x1) | 0
   y1 = Math.abs(y1) | 0
@@ -1237,6 +1368,11 @@ function fb_detect_edge(
   resource, // Framebuffer resource
   mode = 0  // Available modes range from 0 to 2
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   mode = clamp(mode, 0, 2)
 
   let resource_new = fb_copy(resource)
@@ -1279,6 +1415,11 @@ function fb_blur_box(
   resource, // Framebuffer resource
   max = 1   // How many times to call the convolution matrix function (min 1)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let resource_new = fb_copy(resource)
   max = clamp(max, 1)
 
@@ -1301,6 +1442,11 @@ function fb_blur_gaussian(
   resource, // Framebuffer resource
   max = 1   // How many times to call the convolution matrix function (min 1)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let resource_new = fb_copy(resource)
   max = clamp(max, 1)
 
@@ -1323,6 +1469,11 @@ function fb_emboss(
   resource, // Framebuffer resource
   power = 1 // How many times to apply the convolution matrix (min 0.01)
 ) {
+  resource = fb_resolve(resource)
+
+  if (!fb_valid(resource))
+    return null
+
   let resource_new = fb_copy(resource)
   power = clamp(power, 0.01)
 
@@ -1337,11 +1488,6 @@ function fb_emboss(
   )
 
   return resource_new
-}
-
-// Returns true if the resource has loaded
-function fb_loaded(resource) {
-  return fb_valid(resource) && resource.loaded
 }
 
 // Generate a unique resource id
@@ -1359,6 +1505,8 @@ function fb_gen_resource_id() {
 
 // Block modifications to the resource
 function fb_lock(resource) {
+  resource = fb_resolve(resource)
+
   if (!fb_valid(resource))
     return false
 
@@ -1368,6 +1516,8 @@ function fb_lock(resource) {
 
 // Allow modifications to the resource
 function fb_unlock(resource) {
+  resource = fb_resolve(resource)
+
   if (!fb_valid(resource))
     return false
 
@@ -1379,120 +1529,6 @@ function fb_unlock(resource) {
 function fb_loaded(resource) {
   resource = fb_resolve(resource)
   return fb_valid(resource) && resource.loaded
-}
-
-// Convert bytes to an array of numbers
-function bin2pixels(bytes) {
-  let numbers = []
-
-  for (let byte of bytes) {
-    numbers[numbers.length] = hexdec(bin2hex(byte))
-  }
-
-  return numbers
-}
-
-// Request raw bytes from URL using synchronous XMLHttpRequest
-// Thanks to: https://tinyurl.com/SendingAndReceivingBinaryData
-function http_get_bytes(
-  url = null // URL pointing to a file
-) {
-  if (url == null)
-    return false
-
-  let xhr = new XMLHttpRequest()
-  xhr.open('GET', url, false)
-  xhr.overrideMimeType('text/plain; charset=x-user-defined')
-  xhr.send()
-
-  if (xhr.status != 200)
-    return null
-
-  // WARN: Had to come up  with a solution to remove preceeding 0x7F
-  // bytes, which caused misalignment and overall incorrect response
-  // of the data. This "hack" solves that issue, but I do  not  know
-  // how stable it is. I've tried several files and it seems to just
-  // "work." I hope it stays that way.
-  data = xhr.response.split('')
-
-  for (let i = 0, j = data.length; i < j; i++) {
-    let value = bin2hex(data[i])
-
-    if (value.length > 2) {
-      value = value.substr(2, 2)
-      data[i] = hex2bin(value)
-    }
-  }
-
-  return data.join('')
-}
-
-// Converts Hexadecimal string back to binary string
-function hex2bin(
-  hex = null // Hexadecimal string
-) {
-  if (hex == null)
-    return null
-
-  hex = hex.toLowerCase()
-  let hexl = hex.length
-
-  if (hexl % 2)
-    throw('Hexadecimal input string length must be even')
-
-  let output = ''
-
-  for (let i = 0; i < hexl; i += 2)
-    output += String.fromCharCode(parseInt(hex.substr(i, 2), 16))
-
-  return output
-}
-
-// Converts binary strings to Hexadecimal strings
-function bin2hex(
-  bin = null // Binary string
-) {
-  if (bin == null)
-    return null
-
-  let binl = bin.length
-  let output = ''
-
-  for (let i = 0; i < binl; i++) {
-    let hex = bin.charCodeAt(i).toString(16)
-
-    if (2 > hex.length)
-      hex = '0' + hex
-
-    output += hex
-  }
-
-  return output
-}
-
-// Convert a hexadecimal byte to an integer
-function hexdec(
-  v = null // Hexadecimal byte
-) {
-  if (v == null)
-    return null
-
-  return parseInt(v, 16)
-}
-
-// Convert an integer to a hexadecimal byte
-function dechex(
-  v = null // Integer
-) {
-  if (v == null)
-    return null
-
-  let h = Number(v).toString(16)
-
-  if (h.length % 2)
-    h = '0' + h
-
-  return h
 }
 
 // Clamps a value between low and high
