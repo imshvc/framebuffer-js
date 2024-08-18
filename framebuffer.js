@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 11:09 AM
+// Updated: 2024-08-18 12:27 PM
 
 /**
  * Default Canvas Context Attributes
@@ -36,11 +36,6 @@ const FB_IMAGEDATA_CHANNEL_R = 0
 const FB_IMAGEDATA_CHANNEL_G = 1
 const FB_IMAGEDATA_CHANNEL_B = 2
 const FB_IMAGEDATA_CHANNEL_A = 3
-
-/**
- * Contains resources created asynchronously
- */
-var fb_async_resources = {}
 
 /**
  * Create a Framebuffer Resource
@@ -99,28 +94,12 @@ function fb_create(width = 0, height = 0) {
  * @returns {Boolean}
  */
 function fb_sync(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
   resource.context.putImageData(resource.image, 0, 0)
 
   return true
-}
-
-/**
- * Get X and Y position of a pixel in a 32-bit image
- * @param {Number} w Width
- * @param {Number} x X axis
- * @param {Number} y Y axis
- * @returns {Number} Index pointing at pixel on X and Y coordinates
- */
-function fb_getpos(w = 0, x = 0, y = 0) {
-  x = Math.round(x) * 4
-  y = Math.round(y) * 4
-
-  return w * y + x
 }
 
 /**
@@ -133,8 +112,6 @@ function fb_getpos(w = 0, x = 0, y = 0) {
  * @param {Number} b Blue channel
  */
 function fb_set_pixel(resource = null, x, y, r, g, b) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return
 
@@ -156,8 +133,6 @@ function fb_set_pixel(resource = null, x, y, r, g, b) {
  * @returns {(Array|undefined)}
  */
 function fb_get_pixel(resource = null, x, y) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return
 
@@ -177,8 +152,6 @@ function fb_get_pixel(resource = null, x, y) {
  * @throws If resource or container are invalid
  */
 function fb_spawn(resource = null, container = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     throw 'fb_spawn expects resource to be a Framebuffer Resource'
 
@@ -198,8 +171,6 @@ function fb_save(
   resource = null,
   filename = '0.png'
 ) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -235,8 +206,6 @@ function fb_rect(
   b = 255,
   fill = false
 ) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -298,8 +267,6 @@ function fb_circle(
   center = false,
   angles = 360
 ) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -361,8 +328,6 @@ function fb_line(
   b = 255,
   p = 1
 ) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -397,8 +362,6 @@ function fb_line(
  * @returns {Boolean}
  */
 function fb_clear(resource = null, r = 0, g = 0, b = 0) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -455,8 +418,6 @@ function fb_valid(resource = null) {
  * @returns {(Boolean|Object)} Framebuffer Resource
  */
 function fb_copy(resource = null, cri = 0, cgi = 1, cbi = 2) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -480,7 +441,7 @@ function fb_copy(resource = null, cri = 0, cgi = 1, cbi = 2) {
  * @param {String} url URL to the image
  * @param {Number} width Resource width (-1 for auto)
  * @param {Number} height Resource height (-1 for auto)
- * @returns {(null|String)} Framebuffer Resource Identifier
+ * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_load(
   url = null,  // URL of the image
@@ -490,11 +451,8 @@ function fb_load(
   if (url === null)
     return null
 
-  let id = fb_gen_resource_id()
   let resource = fb_create(1, 1) // dummy resource
   resource.loaded = false
-
-  fb_async_resources[id] = resource
 
   let img = new Image()
 
@@ -505,46 +463,20 @@ function fb_load(
     if (height == -1)
       height = img.height
 
-    resource = fb_create(width, height)
+    resource.canvas.width = width
+    resource.canvas.height = height
+    resource.width = width
+    resource.height = height
+
     resource.context.drawImage(img, 0, 0)
     resource.image = resource.context.getImageData(0, 0, width, height)
 
-    fb_async_resources[id] = resource
+    resource.loaded = true
   }
 
   img.src = url
 
-  return 'id:' + id
-}
-
-/**
- * Resolve a Framebuffer Resource Identifier to its object
- * @param {String} id Framebuffer Resource Identifier
- * @returns {(null|Object)} Framebuffer Resource
- */
-function fb_resolve(id = null) {
-  // Return actual resources back (expected behavior)
-  if (fb_valid(id))
-    return id
-
-  if (id === null)
-    return null
-
-  if (id.length === 0)
-    return null
-
-  if (typeof id !== 'string')
-    return null
-
-  if (id.substring(0, 3) !== 'id:')
-    return null
-
-  let hash = id.substring(3)
-
-  if (hash in fb_async_resources && fb_valid(fb_async_resources[hash]))
-    return fb_async_resources[hash]
-
-  return null
+  return resource
 }
 
 /**
@@ -578,12 +510,8 @@ function fb_draw(
   tg = -1,
   tb = -1
 ) {
-  resource_p = fb_resolve(resource_p)
-
   if (!fb_valid(resource_p))
     return false
-
-  resource_c = fb_resolve(resource_c)
 
   if (!fb_valid(resource_c))
     return false
@@ -640,8 +568,6 @@ function fb_fill(
   b,
   callback = fb_set_pixel
 ) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -688,8 +614,6 @@ function fb_fill(
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_get_channel(resource = null, channel = 0) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -703,8 +627,6 @@ function fb_get_channel(resource = null, channel = 0) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_flip_x(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -731,8 +653,6 @@ function fb_flip_x(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_flip_y(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -759,8 +679,6 @@ function fb_flip_y(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_rotate_right(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -787,8 +705,6 @@ function fb_rotate_right(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_rotate_left(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -821,8 +737,6 @@ function fb_rotate_left(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_replace_color(resource = null, pr, pg, pb, cr, cg, cb) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -848,8 +762,6 @@ function fb_replace_color(resource = null, pr, pg, pb, cr, cg, cb) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_color_invert(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -879,8 +791,6 @@ function fb_color_invert(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_color_grayscale(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -908,8 +818,6 @@ function fb_color_grayscale(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_color_1bit(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -938,8 +846,6 @@ function fb_color_1bit(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_noise_grayscale(resource = null, scale = 0.1) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -975,8 +881,6 @@ function fb_noise_grayscale(resource = null, scale = 0.1) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_noise_rgb(resource = null, scale = 0.1) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1029,8 +933,6 @@ function fb_convolution_matrix(
   divisor = 1,
   offset = 0
 ) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1317,8 +1219,6 @@ function fb_convolution_matrix(
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_sharpen(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1344,8 +1244,6 @@ function fb_sharpen(resource = null) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_resize(resource = null, w = 0, h = 0) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1386,8 +1284,6 @@ function fb_resize(resource = null, w = 0, h = 0) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_pixelate(resource = null, factor = 2) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1446,8 +1342,6 @@ function fb_pixelate(resource = null, factor = 2) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_crop(resource = null, x1 = 0, y1 = 0, x2 = 1, y2 = 1, mode = 0) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1519,8 +1413,6 @@ function fb_crop(resource = null, x1 = 0, y1 = 0, x2 = 1, y2 = 1, mode = 0) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_detect_edge(resource = null, mode = 0) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1568,8 +1460,6 @@ function fb_detect_edge(resource = null, mode = 0) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_blur_box(resource = null, max = 1) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1597,8 +1487,6 @@ function fb_blur_box(resource = null, max = 1) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_blur_gaussian(resource = null, max = 1) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1626,8 +1514,6 @@ function fb_blur_gaussian(resource = null, max = 1) {
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_emboss(resource = null, power = 1) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return null
 
@@ -1648,29 +1534,11 @@ function fb_emboss(resource = null, power = 1) {
 }
 
 /**
- * Generate a unique Framebuffer Resource Identifier
- * @returns {String} Framebuffer Resource Identifier
- */
-function fb_gen_resource_id() {
-  let chars = 'abcdef0123456789'
-  let chars_len = chars.length
-  let len = 24
-  let buffer = ''
-
-  while (--len)
-    buffer += chars[(Math.random() * chars_len) | 0]
-
-  return buffer
-}
-
-/**
  * Block modifications to the Framebuffer Resource (lock)
  * @param {(Object|String)} resource Framebuffer Resource
  * @returns {Boolean}
  */
 function fb_lock(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
@@ -1684,23 +1552,11 @@ function fb_lock(resource = null) {
  * @returns {Boolean}
  */
 function fb_unlock(resource = null) {
-  resource = fb_resolve(resource)
-
   if (!fb_valid(resource))
     return false
 
   resource.locked = false
   return true
-}
-
-/**
- * Ensure the resource is loaded
- * @param {(Object|String)} resource Framebuffer Resource
- * @returns {Boolean}
- */
-function fb_loaded(resource = null) {
-  resource = fb_resolve(resource)
-  return fb_valid(resource) && resource.loaded
 }
 
 /**
@@ -1711,12 +1567,8 @@ function fb_loaded(resource = null) {
  * @return {Boolean}
  */
 function fb_replace(resource_p = null, resource_c = null) {
-  resource_p = fb_resolve(resource_p)
-
   if (!fb_valid(resource_p))
     return false
-
-  resource_c = fb_resolve(resource_c)
 
   if (!fb_valid(resource_c))
     return false
