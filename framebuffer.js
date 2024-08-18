@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 07:47 AM
+// Updated: 2024-08-18 08:25 AM
 
 /**
  * Default Canvas Context Attributes
@@ -404,20 +404,18 @@ function fb_line(
  * @param {Number} b Blue channel
  * @returns {Boolean}
  */
-function fb_clear(
-  resource = null,
-  r = 0,   
-  g = 0,   
-  b = 0,   
-) {
+function fb_clear(resource = null, r = 0, g = 0, b = 0) {
   resource = fb_resolve(resource)
 
   if (!fb_valid(resource))
     return false
 
-  for (let y = 0; y < resource.height; y++)
-    for (let x = 0; x < resource.width; x++)
-      fb_set_pixel(resource, x, y, r, g, b)
+  for (let i = 0; i < resource.image.data.length;) {
+    resource.image.data[i + FB_IMAGEDATA_CHANNEL_R] = r
+    resource.image.data[i + FB_IMAGEDATA_CHANNEL_G] = g
+    resource.image.data[i + FB_IMAGEDATA_CHANNEL_B] = b
+    i += 4
+  }
 
   return true
 }
