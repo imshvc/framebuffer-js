@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 03:41 AM
+// Updated: 2024-08-18 04:08 AM
 
 // Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
 var FB_CANVAS_CONTEXT_ATTRIBUTES = {
@@ -75,14 +75,6 @@ function fb_create(width, height) {
   )
 
   resource.image = new ImageData(width, height)
-
-  // Fix alpha issue on non-alpha canvas by setting it to 255
-  for (let x = 0; x < width; x++) {
-    for (let y = 0; y < height; y++) {
-      let pos = fb_getpos(width, height, x, y)
-      resource.image.data[pos + FB_IMAGEDATA_CHANNEL_A] = 255
-    }
-  }
 
   return resource
 }
