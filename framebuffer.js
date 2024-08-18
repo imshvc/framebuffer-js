@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 06:44 AM
+// Updated: 2024-08-18 07:47 AM
 
 /**
  * Default Canvas Context Attributes
@@ -88,6 +88,7 @@ function fb_create(width = 0, height = 0) {
     throw 'Canvas is not supported on this platform'
 
   resource.image = new ImageData(width, height)
+  resource.image.data.fill(255)
 
   return resource
 }
