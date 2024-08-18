@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 01:42 AM
+// Updated: 2024-08-18 03:23 AM
 
 // Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
 var FB_CANVAS_CONTEXT_ATTRIBUTES = {
@@ -278,6 +278,7 @@ function fb_line(
 }
 
 // Clear everything from the bitmap (by default using Black color)
+// FIXME: Use Canvas' API to clear the buffer 'clearRect()'
 function fb_clear(
   resource, // Framebuffer resource
   r = 0,    // Color channel Red
@@ -384,12 +385,15 @@ function fb_load(
 
 // Resolve a resource id to its object
 function fb_resolve(id = null) {
-  if (id === null)
-    return null
-
   // Return actual resources back (expected behavior)
   if (fb_valid(id))
     return id
+
+  if (id === null)
+    return null
+
+  if (id.length === 0)
+    return null
 
   if (typeof id !== 'string')
     return null
@@ -397,15 +401,16 @@ function fb_resolve(id = null) {
   if (id.substring(0, 3) !== 'id:')
     return null
 
-  let id_hash = id.substring(3)
+  let hash = id.substring(3)
 
-  if (id_hash in fb_async_resources && fb_valid(fb_async_resources[id_hash]))
-    return fb_async_resources[id_hash]
+  if (hash in fb_async_resources && fb_valid(fb_async_resources[hash]))
+    return fb_async_resources[hash]
 
   return null
 }
 
 // Draw the contents from a resource child to the resource parent
+// FIXME: Replace fb_set_pixel with Canvas' built-in 'drawImage' equivalent
 function fb_draw(
   resource_p,          // Framebuffer resource (parent)
   resource_c,          // Framebuffer resource (child)
@@ -521,6 +526,8 @@ function fb_flip_x(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       let c = fb_get_pixel(resource, x, y)
+
+      // FIXME: Maybe we can yield better performance if we implement this ourselves in bitwise?
       let x2 = Math.abs(width - x) - 1
       fb_set_pixel(resource_new, x2, y, c[0], c[1], c[2])
     }
@@ -540,6 +547,8 @@ function fb_flip_y(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       let c = fb_get_pixel(resource, x, y)
+
+      // FIXME: Maybe we can yield better performance if we implement this ourselves in bitwise?
       let y2 = Math.abs(height - y) - 1
       fb_set_pixel(resource_new, x, y2, c[0], c[1], c[2])
     }
@@ -559,6 +568,8 @@ function fb_rotate_right(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       let c = fb_get_pixel(resource, x, y)
+
+      // FIXME: Maybe we can yield better performance if we implement this ourselves in bitwise?
       let y2 = Math.abs(height - y) - 1
       fb_set_pixel(resource_new, y2, x, c[0], c[1], c[2])
     }
@@ -578,6 +589,8 @@ function fb_rotate_left(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       let c = fb_get_pixel(resource, x, y)
+
+      // FIXME: Maybe we can yield better performance if we implement this ourselves in bitwise?
       let x2 = Math.abs(width - x) - 1
       fb_set_pixel(resource_new, y, x2, c[0], c[1], c[2])
     }
@@ -624,6 +637,7 @@ function fb_color_invert(
     for (let x = 0; x < width; x++) {
       let c = fb_get_pixel(resource, x, y)
 
+      // FIXME: Use XOR to revert the colors instead!
       c[0] = Math.abs(c[0] - 255)
       c[1] = Math.abs(c[1] - 255)
       c[2] = Math.abs(c[2] - 255)
@@ -742,6 +756,10 @@ function fb_noise_rgb(
   return resource_new
 }
 
+// FIXME: See if 'Row- and column-major order' matters here.
+//        Ideally we'd want to loop over in row-major order
+//        X loop inside Y
+//
 // Apply a convolution matrix to an image.
 // More information about that here:
 //  - https://en.wikipedia.org/wiki/Kernel_(image_processing)
@@ -1153,10 +1171,12 @@ function fb_crop(
   y2   = 1, // Position Y #2 (Mode 2 uses it as height)
   mode = 0  // If 1, values [x2, y2] are used as width and height of the returned resource
 ) {
+  // FIXME: Maybe we can yield better performance if we implement this ourselves in bitwise?
   x1 = Math.abs(x1) | 0
   y1 = Math.abs(y1) | 0
   x2 = Math.abs(x2) | 0
   y2 = Math.abs(y2) | 0
+
   mode = clamp(mode, 0, 1)
 
   if (mode == 0) {
