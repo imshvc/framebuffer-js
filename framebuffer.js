@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 10:29 AM
+// Updated: 2024-08-18 11:09 AM
 
 /**
  * Default Canvas Context Attributes
@@ -141,14 +141,7 @@ function fb_set_pixel(resource = null, x, y, r, g, b) {
   if (resource.locked)
     return
 
-  // Convert to whole numbers
-  x |= 0
-  y |= 0
-  r |= 0
-  g |= 0
-  b |= 0
-
-  let pos = fb_getpos(resource.width, x, y)
+  let pos = resource.width * y * 4 + x * 4
 
   resource.image.data[pos + FB_IMAGEDATA_CHANNEL_R] = r
   resource.image.data[pos + FB_IMAGEDATA_CHANNEL_G] = g
@@ -168,7 +161,7 @@ function fb_get_pixel(resource = null, x, y) {
   if (!fb_valid(resource))
     return
 
-  let pos = fb_getpos(resource.width, x, y)
+  let pos = resource.width * y * 4 + x * 4
 
   return [
     resource.image.data[pos + FB_IMAGEDATA_CHANNEL_R],
@@ -397,7 +390,6 @@ function fb_line(
 
 /**
  * Clear the canvas (default color Black)
- * @todo FIXME: Use Canvas' API 'clearRect()'
  * @param {(Object|String)} resource Framebuffer Resource
  * @param {Number} r Red channel
  * @param {Number} g Green channel
@@ -470,11 +462,10 @@ function fb_copy(resource = null, cri = 0, cgi = 1, cbi = 2) {
 
   let copy = fb_create(resource.width, resource.height)
 
-  // FIXME: Could we use structuredClone on ImageData (?)
   for (let i = 0, j = resource.image.data.length; i < j;) {
-    copy.image.data[i + 0] = resource.image.data[i + cri]
-    copy.image.data[i + 1] = resource.image.data[i + cgi]
-    copy.image.data[i + 2] = resource.image.data[i + cbi]
+    copy.image.data[i + FB_IMAGEDATA_CHANNEL_R] = resource.image.data[i + cri]
+    copy.image.data[i + FB_IMAGEDATA_CHANNEL_G] = resource.image.data[i + cgi]
+    copy.image.data[i + FB_IMAGEDATA_CHANNEL_B] = resource.image.data[i + cbi]
     i += 4
   }
 
