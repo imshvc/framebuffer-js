@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 09:34 AM
+// Updated: 2024-08-18 10:29 AM
 
 /**
  * Default Canvas Context Attributes
@@ -328,8 +328,8 @@ function fb_circle(
   h = radian / h * 2.016
 
   for (let angle = 0, x1, y1; angle < angles; angle += 0.05) {
-    x1 = radian * Math.cos(deg2rad(angle)) / w
-    y1 = radian * Math.sin(deg2rad(angle)) / h
+    x1 = radian * Math.cos(angle * (Math.PI / 180)) / w
+    y1 = radian * Math.sin(angle * (Math.PI / 180)) / h
 
     if (fill) {
       fb_line(resource, x, y, x + x1, y + y1, r, g, b)
@@ -1781,44 +1781,4 @@ function time() {
  */
 function time_precise() {
   return +Date.now()
-}
-
-/**
- * Returns true if N is in range of A and B
- * @param {Number} n Number
- * @param {Number} a 1st Number
- * @param {Number} b 2nd Number
- * @returns {Boolean}
- */
-function in_range(n, a, b) {
-  return (n >= a && n <= b)
-}
-
-/**
- * Linear interpolation
- * @param {Number} a Point A
- * @param {Number} b Point B
- * @param {Number} t Time
- * @returns {Number}
- */
-function lerp(a, b, t) {
-  return a + (b - a) * t
-}
-
-/**
- * Degree to radian
- * @param {Number} deg Degrees
- * @returns {Number} Radians
- */
-function deg2rad(deg) {
-  return deg * (Math.PI / 180)
-}
-
-/**
- * Radian to degree
- * @param {Number} rad Radians
- * @returns {Number} Degrees
- */
-function rad2deg(rad) {
-  return rad * (180 / Math.PI)
 }
