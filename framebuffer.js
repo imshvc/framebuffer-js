@@ -1,7 +1,7 @@
 // Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
 // JavaScript Library: Abstraction Layer For 2D Canvas
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-18 02:30 PM
+// Updated: 2024-08-25 11:50 AM
 
 /**
  * Default Canvas Context Attributes
@@ -384,8 +384,6 @@ function fb_clear(resource = null, r = 255, g = 255, b = 255) {
  * @returns {Boolean}
  */
 function fb_valid(resource = null) {
-  // WARN: Do not resolve here - infinite loop.
-
   if (resource === null)
     return false
 
