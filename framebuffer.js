@@ -1,16 +1,225 @@
-// Author: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
-// JavaScript Library: Abstraction Layer For 2D Canvas
+// Authors: Nurudin Imsirovic <realnurudinimsirovic@gmail.com>
+// Library: Abstraction Layer For 2D Canvas
+// License: WTFPL v2 (See license.txt)
+// Project: https://github.com/imshvc/framebuffer-js
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-08-25 11:50 AM
+// Updated: 2024-09-05 02:46 AM
+
+// Calendar Versioning (CalVer)
+//
+// See 1: https://calver.org/
+// See 2: https://stripe.com/blog/api-versioning
+// See 3: https://en.wikipedia.org/wiki/ISO_8601#Calendar_dates
+const FB_VERSION_YEAR = 2024
+const FB_VERSION_MONTH = 9
+const FB_VERSION_DAY = 5
+
+// Prototypes
+function FBResource() {
+  Object.assign(this, ...arguments)
+}
+
+function FBError(text = null, id = null) {
+  this.text = text
+  this.id = id
+  this.created = +Date.now() // UNIX time on creation
+}
+
+function FBErrorDefinition(text = null, id = null) {
+  this.text = text
+  this.id = id
+}
 
 /**
- * Default Canvas Context Attributes
- * Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+ * Generate an error (or check if value is one)
+ * Polymorphic function.
+ * @param {String|FBError} text Error description, FBError, or FBResource object.
+ * @param {String} id Error ID
+ * @returns {FBError|Boolean} FBError is returned on error creation
  */
-var FB_CANVAS_CONTEXT_ATTRIBUTES = {
+function fb_error(text = null, id = 'FB_ERR_USER_GENERATED') {
+  // Error check
+  if (text instanceof FBError)
+    return true
+
+  // Resource check
+  if (text instanceof FBResource)
+    return fb_error(text.error)
+
+  // Built-in error check
+  if (text instanceof FBErrorDefinition)
+    return fb_error(text.text, text.id)
+
+  // Not text
+  if (typeof text !== 'string')
+    text = ''
+
+  // Text can be null
+  if (text === null)
+    text = ''
+
+  text = text.trim()
+
+  // ID check
+  if (id instanceof FBErrorDefinition)
+    id = id.id
+  else if (id != 'FB_ERR_USER_GENERATED')
+    id = 'FB_ERR_UNSPECIFIED'
+
+  let error = new FBError(text, id)
+
+  // Logging enabled
+  if (fb_config('log_errors'))
+    window.fb_errors.push(error)
+
+  return error
+}
+
+/**
+ * Get error value either by ID or Text
+ * Internal function.
+ * @param {String} value Error ID or Text
+ * @returns {String|Null}
+ */
+function fb_error_map_value(value = null) {
+  if (value === null)
+    return null
+
+  let errors = window.fb_error_ids
+
+  if (fb_error_exists(value))
+    return errors[value]
+
+  return null
+}
+
+/**
+ * Translate Error ID to Text
+ * @param {String|FBError} value Error ID
+ * @returns {String|Null}
+ */
+function fb_error_id(value = null) {
+  if (value === null)
+    return null
+
+  if (value instanceof FBError)
+    value = value.id
+
+  if (value.trim().length == 0)
+    return null
+
+  // Invalid ID
+  if (value.length < 7 || value.toUpperCase().substring(0, 7) !== 'FB_ERR_')
+    return null
+
+  return fb_error_map_value(value)
+}
+
+/**
+ * Translate Error Text to ID
+ * @param {String|FBError} value Error Text
+ * @returns {String|Null}
+ */
+function fb_error_text(value = null) {
+  if (value === null)
+    return null
+
+  if (value instanceof FBError)
+    value = value.text
+
+  if (value.trim().length == 0)
+    return null
+
+  // Passed ID instead of Text
+  if (value.length >= 7 && value.toUpperCase().substring(0, 7) === 'FB_ERR_')
+    return null
+
+  return fb_error_map_value(value)
+}
+
+/**
+ * Check if error definition exists.
+ * Internal function.
+ * @param {String|FBError} id Error ID, Description, or FBError Object
+ */
+function fb_error_exists(id = null) {
+  if (id === null)
+    return id
+
+  if (id instanceof FBError)
+    id = id.id
+
+  return id in window.fb_error_ids
+}
+
+/**
+ * List/filter Framebuffer JS functions
+ * @param {String} var_args Strings to filter against function names
+ * @returns {Array}
+ */
+function fb_list_functions(var_args) {
+  let filters = [...arguments]
+  let list = {}
+
+  // for each 'key' in window
+  for (let k in window) {
+
+    // if k starts with 'fb_' and is a function
+    if (k.startsWith('fb_') && typeof window[k] === 'function') {
+
+      // filters specified, need to loop
+      if (filters.length > 0) {
+        for (let str of filters) {
+          // function name contains 'str' from 'filters'
+          if (k.includes(str))
+            list[k] = 0
+        }
+
+        // continue to next filter item
+        continue
+      }
+
+      // no filter specified
+      list[k] = 0
+    }
+  }
+
+  return Object.keys(list)
+}
+
+/**
+ * Get last error that was logged
+ * @returns {FBError|null}
+ */
+function fb_get_last_error() {
+  let errors = window.fb_errors
+
+  if (errors.length == 0)
+    return null
+
+  if (!fb_config('log_errors'))
+    return null
+
+  return errors[errors.length - 1]
+}
+
+/**
+ * Clear error log
+ * @returns {undefined}
+ */
+function fb_clear_errors() {
+  window.fb_errors.length = 0
+}
+
+// Default Canvas Context Attributes
+// Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+var fb_canvas_context_attributes = {
   // A boolean value that indicates if the canvas contains an alpha channel.
   // If set to 'false', the browser now knows that the backdrop is always opaque,
   // which can speed up drawing of transparent content and images.
+  //
+  // Disclaimer: When set to 'true', Certain hardware or software configurations
+  // may yield diminishing returns in terms of rendering performance.
   alpha: false,
 
   // Specifies the color space of the rendering context.
@@ -28,14 +237,216 @@ var FB_CANVAS_CONTEXT_ATTRIBUTES = {
 }
 
 // Dimension constraints
-const FB_MAX_ALLOWED_WIDTH = 65535
-const FB_MAX_ALLOWED_HEIGHT = 65535
+//
+// Disclaimer: We impose our own, but constraints are often set
+// by the browser, or due to hardware limitation. This is a
+// known upper limit to "work" but no guarantees it will on
+// every device.
+const FB_MAX_WIDTH = 32767
+const FB_MAX_HEIGHT = 32767
 
 // Color channel offsets
-const FB_IMAGEDATA_CHANNEL_R = 0
-const FB_IMAGEDATA_CHANNEL_G = 1
-const FB_IMAGEDATA_CHANNEL_B = 2
-const FB_IMAGEDATA_CHANNEL_A = 3
+const FB_CHANNEL_R = 0
+const FB_CHANNEL_G = 1
+const FB_CHANNEL_B = 2
+const FB_CHANNEL_A = 3
+
+// Defer methods
+const FB_DEFER_WRITE_THROUGH = 0
+const FB_DEFER_WRITE_BACK = 1
+
+// Error definitions - Bi-directional map
+var fb_error_ids = {
+  FB_ERR_UNSPECIFIED: 'unspecified error',
+  FB_ERR_BAD_WIDTH: 'width less than or equal to zero (0 >= width)',
+  FB_ERR_BAD_HEIGHT: 'width less than or equal to zero (0 >= height)',
+  FB_ERR_LARGE_WIDTH: 'width larger than allowed size (>' + FB_MAX_WIDTH + ')',
+  FB_ERR_LARGE_HEIGHT: 'height larger than allowed size (>' + FB_MAX_HEIGHT + ')',
+  FB_ERR_STUB_FUNCTION: 'stub function or method',
+  FB_ERR_FUNC_BLACKLISTED: 'function is blacklisted from being hooked via library methods',
+  FB_ERR_BAD_CFG_KEY: 'bad configuration key',
+  FB_ERR_BAD_CFG_VALUE: 'bad configuration value',
+  FB_ERR_BAD_HOOK_TYPE: 'bad function hook type',
+  FB_ERR_HOOK_CALL_FAILED: 'hook call failed',
+  FB_ERR_CANT_LOAD: 'cannot load',
+  FB_ERR_USER_GENERATED: 'user generated error',
+  FB_ERR_UNHANDLED_CASE: 'unhandled case',
+  FB_ERR_RES_LIST_DISABLED: 'resource list disabled by configuration',
+  FB_ERR_CONVOLUTION_MATRIX_SIZE: 'convolution matrix must be of size 3x3 (9) or 5x5 (25)',
+}
+
+for (let id in fb_error_ids) {
+  // opposite-direction lookup
+  let text = fb_error_ids[id]
+
+  // create an error definition to differentiate
+  // between built-in and user-provided errors
+  fb_error_ids[id] = new FBErrorDefinition(text, id)
+  fb_error_ids[text] = fb_error_ids[id]
+
+  // assign global variable as reference to error text
+  window[id] = fb_error_ids[id]
+}
+
+/**
+ * Describe error IDs to their descriptions and vice-versa
+ * @param {String|FBError} id Error ID, Description, or FBError Object
+ * @returns {String|null}
+ */
+function fb_describe_error(id = null) {
+  if (id === null)
+    return id
+
+  if (id instanceof FBError)
+    id = id.id
+
+  if (!fb_error_exists(id))
+    return null
+
+  let errors = window.fb_error_ids
+
+  // value -> key
+  if (id.toUpperCase().substring(0, 7) !== 'FB_ERR_')
+    return errors[errors[id]]
+
+  // key -> value
+  return errors[id]
+}
+
+// Object containing hooked functions
+// See 'fb_hook()' function.
+// Wiki: https://en.wikipedia.org/wiki/Hooking
+var fb_hooked_functions = {}
+
+// Blacklisted functions from hooks
+var fb_hook_blacklist = [
+  'fb_hook',
+  'fb_hook_active',
+  'fb_hook_call',
+  'fb_hook_disable',
+  'fb_hook_enable',
+  'fb_hooked',
+  'fb_unhook',
+]
+
+// References to created and/or loaded Framebuffer Resources
+// Even if a resource is assigned to a variable, it's object
+// should realistically be here.
+var fb_resource_list = []
+
+// Errors generated by fb_error()
+// Disabled by default.  Use fb_config()
+// to enable logging.
+var fb_errors = []
+
+/**
+ * Add resource reference to the resource list
+ * @param {FBResource} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_resource_list_add(resource = null) {
+  // Disabled by configuration
+  if (!fb_config('use_resource_list'))
+    return false
+
+  if (!fb_valid(resource))
+    return false
+
+  window.fb_resource_list.push(resource)
+  return true
+}
+
+/**
+ * Filter created resources by their property values.
+ * Multiple filters allowed. Including callbacks.
+ * @param {Object|FBError}
+ * @returns {Object|FBError}
+ */
+function fb_resource_list_filter(var_args) {
+  if (!fb_config('use_resource_list'))
+    return
+}
+
+// Configuration map keys accessible by 'fb_config()'
+var fb_config_map_keys = [
+  'alpha',
+  'defer',
+  'log_errors',
+  'use_resource_list',
+]
+
+// Configuration map
+// Disclaimer: Must be put last (before fb_create)
+//
+// We don't have a '_get' method.
+//
+// Internal functions access values inline,
+// whereas for maintainability reasons user code
+// should use 'fb_config()' when setting or getting
+// the value.
+//
+// Private methods: 'parent' refers to the
+// key object itself where methods and values
+// reside.
+//
+// FIXME: Maybe just use 'this' instead of 'parent'?
+// We'll see how the overall thing behaves, don't make
+// assumptions beforehand.
+var fb_config_map = {
+  // Alpha (part of Canvas Context Attributes)
+  alpha: {
+    default: false,
+    value: false,
+    allowed: [0, 1, false, true],
+
+    // Private methods
+    _set: function(value, parent) {
+      parent.value = value
+      fb_canvas_context_attributes.alpha = value
+    },
+  },
+
+  // Defer bit
+  defer: {
+    allowed: [
+      FB_DEFER_WRITE_THROUGH,
+      FB_DEFER_WRITE_BACK,
+    ],
+    default: FB_DEFER_WRITE_BACK,
+    value: FB_DEFER_WRITE_BACK,
+
+    // Private methods
+    _set: function(value, parent) {
+      parent.value = value
+    },
+  },
+
+  // Log errors by fb_error()
+  log_errors: {
+    allowed: [0, 1, false, true],
+    default: 0,
+    value: 0,
+
+    // Private methods
+    _set: function(value, parent) {
+      parent.value = value
+    }
+  },
+
+  // Use 'fb_resource_list' as an array of
+  // resources created throughout the script
+  // lifetime
+  use_resource_list: {
+    allowed: [0, 1, false, true],
+    default: 0,
+    value: 0,
+
+    // Private methods
+    _set: function(value, parent) {
+      parent.value = value
+    }
+  },
+}
 
 /**
  * Create a Framebuffer Resource
@@ -48,27 +459,79 @@ function fb_create(width = 0, height = 0) {
   width |= 0
   height |= 0
 
-  // Boundary checks
-  if (0 >= width)
-    throw 'width less than or equal to zero (0 >= width)'
-
-  if (0 >= height)
-    throw 'width less than or equal to zero (0 >= height)'
-
-  if (width > FB_MAX_ALLOWED_WIDTH)
-    throw 'width larger than allowed size (>' + FB_MAX_ALLOWED_WIDTH + ')'
-
-  if (height > FB_MAX_ALLOWED_HEIGHT)
-    throw 'height larger than allowed size (>' + FB_MAX_ALLOWED_HEIGHT + ')'
-
-  let resource = {
+  let resource = new FBResource({
     canvas: null,
     width: width,
     height: height,
     context: null,
     image: null,
+
+    // UNIX time on creation
+    created: +Date.now(),
+
+    // UNIX time on update (fb_sync call)
+    updated: 0,
+
+    // Property in use by fb_load()
+    // Use it to your advantage.
     loaded: true,
+
+    // Resource is locked. Use this to prevent accidental
+    // writes to a static resource.
+    //
+    // Disclaimer: Code can still go rogue and set this
+    // to false, but a good feature to have nonetheless.
     locked: false,
+
+    // Dirty bit is set when pixel values have changed until
+    // fb_sync() is called to synchronize the cache and main
+    // memory. If you enable (write-through) aka defer = 0
+    // then this synchronization procedure is automatically
+    // performed.
+    dirty: 0,
+
+    // Course of action when pixel values change.
+    // Default: write-back
+    //
+    // 1 = write-back
+    //     Changes are written to temporary memory (faster)
+    //     but requires fb_sync() to be called afterwards.
+    //
+    // 0 = write-through
+    //     Synchronized automatically, has a performance hit
+    //     but more intuitive as no need to call fb_sync()
+    defer: fb_config_map.defer.value,
+
+    // Error messages by internal functions.
+    //
+    // Please don't modify it with your code!
+    //
+    // One can do that to allow other code
+    // relying on the value to run, though
+    // unexpected results usually arise which
+    // becomes more difficult to debug.
+    error: null,
+  })
+
+  // Boundary checks
+  if (0 >= width) {
+    resource.error = fb_error(FB_ERR_BAD_WIDTH)
+    return resource
+  }
+
+  if (0 >= height) {
+    resource.error = fb_error(FB_ERR_BAD_HEIGHT)
+    return resource
+  }
+
+  if (width > FB_MAX_WIDTH) {
+    resource.error = fb_error(FB_ERR_LARGE_WIDTH)
+    return resource
+  }
+
+  if (height > FB_MAX_HEIGHT) {
+    resource.error = fb_error(FB_ERR_LARGE_HEIGHT)
+    return resource
   }
 
   resource.canvas = document.createElement('canvas')
@@ -76,7 +539,7 @@ function fb_create(width = 0, height = 0) {
   resource.canvas.height = height
 
   resource.context = resource.canvas.getContext(
-    '2d', FB_CANVAS_CONTEXT_ATTRIBUTES
+    '2d', fb_canvas_context_attributes
   )
 
   if (resource.context === null)
@@ -93,21 +556,29 @@ function fb_create(width = 0, height = 0) {
 
 /**
  * Synchronize ImageData to the Canvas
- * @param {(Object|String)} resource Framebuffer Resource
- * @returns {Boolean}
+ * @param {Object} var_args Framebuffer Resource(s)
+ * @returns {Number} Valid resources synchronized
  */
-function fb_sync(resource = null) {
-  if (!fb_valid(resource))
-    return false
+function fb_sync(var_args) {
+  let count = 0
 
-  resource.context.putImageData(resource.image, 0, 0)
+  for (let resource of arguments) {
+    if (!fb_valid(resource))
+      continue
 
-  return true
+    ++count
+    resource.context.putImageData(resource.image, 0, 0)
+    resource.dirty = 0
+    resource.updated = +Date.now()
+  }
+
+  return count
 }
 
 /**
- * Set pixel color at X and Y coordinates
- * @param {(Object|String)} resource Framebuffer Resource
+ * Set RGB pixel color at X and Y coordinates
+ * <NoDefer>
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} x X axis
  * @param {Number} y Y axis
  * @param {Number} r Red channel
@@ -121,16 +592,22 @@ function fb_set_pixel(resource = null, x, y, r, g, b) {
   if (resource.locked)
     return
 
+  x |= 0
+  y |= 0
+
   let pos = resource.width * y * 4 + x * 4
 
-  resource.image.data[pos + FB_IMAGEDATA_CHANNEL_R] = r
-  resource.image.data[pos + FB_IMAGEDATA_CHANNEL_G] = g
-  resource.image.data[pos + FB_IMAGEDATA_CHANNEL_B] = b
+  resource.image.data[pos + FB_CHANNEL_R] = r
+  resource.image.data[pos + FB_CHANNEL_G] = g
+  resource.image.data[pos + FB_CHANNEL_B] = b
+
+  resource.dirty = 1
 }
 
 /**
- * Get pixel color at X and Y coordinates
- * @param {(Object|String)} resource Framebuffer Resource
+ * Get RGB pixel color at X and Y coordinates
+ * <NoDefer>
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} x X axis
  * @param {Number} y Y axis
  * @returns {(Array|undefined)}
@@ -139,18 +616,21 @@ function fb_get_pixel(resource = null, x, y) {
   if (!fb_valid(resource))
     return
 
+  x |= 0
+  y |= 0
+
   let pos = resource.width * y * 4 + x * 4
 
   return [
-    resource.image.data[pos + FB_IMAGEDATA_CHANNEL_R],
-    resource.image.data[pos + FB_IMAGEDATA_CHANNEL_G],
-    resource.image.data[pos + FB_IMAGEDATA_CHANNEL_B],
+    resource.image.data[pos + FB_CHANNEL_R],
+    resource.image.data[pos + FB_CHANNEL_G],
+    resource.image.data[pos + FB_CHANNEL_B],
   ]
 }
 
 /**
  * Spawn resource to a container element
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Element} container Element to which we spawn
  * @throws If resource or container are invalid
  */
@@ -158,7 +638,7 @@ function fb_spawn(resource = null, container = null) {
   if (!fb_valid(resource))
     throw 'fb_spawn expects resource to be a Framebuffer Resource'
 
-  if (container === null || !(container instanceof Element))
+  if (container === null || container instanceof Element === false)
     throw 'fb_spawn expects container to be an element (got null)'
 
   container.append(resource.canvas)
@@ -166,7 +646,7 @@ function fb_spawn(resource = null, container = null) {
 
 /**
  * Download resource image as file
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {String} filename Name of saved file
  * @returns {Boolean}
  */
@@ -178,7 +658,7 @@ function fb_save(
     return false
 
   let anchor = document.createElement('a')
-  anchor.href = resource.canvas.toDataURL()
+  anchor.href = fb_data_url(resource)
   anchor.download = filename
   anchor.click()
 
@@ -187,7 +667,7 @@ function fb_save(
 
 /**
  * Draw a rectangle
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} x X axis
  * @param {Number} y Y axis
  * @param {Number} w Width
@@ -237,12 +717,14 @@ function fb_rect(
     fb_line(resource, x2 - 1, y, x2 - 1, y2, r, g, b)
   }
 
+  fb_defer(resource)
+
   return true
 }
 
 /**
  * Draw a circle
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} x X axis
  * @param {Number} y Y axis
  * @param {Number} w Width
@@ -304,12 +786,14 @@ function fb_circle(
     }
   }
 
+  fb_defer(resource)
+
   return true
 }
 
 /**
  * Draw a line from point A to point B
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} x1 X axis (point A)
  * @param {Number} y1 Y axis (point A)
  * @param {Number} x2 X axis (point B)
@@ -345,20 +829,22 @@ function fb_line(
   x = x1
   y = y1
 
-  for (let i = 0; i < l; i++) {
+  for (let i = 0; i < l; i += 0.5) {
     if (resource.width > x && resource.height > y)
       fb_set_pixel(resource, x, y, r, g, b)
 
-    x += ax
-    y += ay
+    x += ax / 2
+    y += ay / 2
   }
+
+  fb_defer(resource)
 
   return true
 }
 
 /**
  * Clear the canvas (default color Black)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} r Red channel
  * @param {Number} g Green channel
  * @param {Number} b Blue channel
@@ -368,43 +854,46 @@ function fb_clear(resource = null, r = 255, g = 255, b = 255) {
   if (!fb_valid(resource))
     return false
 
-  for (let i = 0; i < resource.image.data.length;) {
-    resource.image.data[i + FB_IMAGEDATA_CHANNEL_R] = r
-    resource.image.data[i + FB_IMAGEDATA_CHANNEL_G] = g
-    resource.image.data[i + FB_IMAGEDATA_CHANNEL_B] = b
-    i += 4
+  for (let i = 0; i < resource.image.data.length; i += 4) {
+    resource.image.data[i + FB_CHANNEL_R] = r
+    resource.image.data[i + FB_CHANNEL_G] = g
+    resource.image.data[i + FB_CHANNEL_B] = b
   }
+
+  fb_defer(resource)
 
   return true
 }
 
 /**
  * Verify that the Framebuffer Resource is valid
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {Boolean}
  */
 function fb_valid(resource = null) {
   if (resource === null)
     return false
 
-  if (typeof resource !== 'object')
-    return false
-
-  if (resource.length == 0)
+  if (resource instanceof FBResource === false)
     return false
 
   let fields = [
     'canvas',
     'context',
+    'created',
+    'defer',
+    'dirty',
+    'error',
     'height',
     'image',
-    'width',
-    'locked',
     'loaded',
+    'locked',
+    'updated',
+    'width',
   ]
 
   for (let field of fields)
-    if (!(field in resource))
+    if (field in resource === false)
       return false
 
   return true
@@ -412,7 +901,7 @@ function fb_valid(resource = null) {
 
 /**
  * Clone the resource
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} cri Red channel index (default 0)
  * @param {Number} cgi Green channel index (default 1)
  * @param {Number} cbi Blue channel index (default 2)
@@ -425,20 +914,23 @@ function fb_copy(resource = null, cri = 0, cgi = 1, cbi = 2) {
   let copy = fb_create(resource.width, resource.height)
 
   for (let i = 0, j = resource.image.data.length; i < j;) {
-    copy.image.data[i + FB_IMAGEDATA_CHANNEL_R] = resource.image.data[i + cri]
-    copy.image.data[i + FB_IMAGEDATA_CHANNEL_G] = resource.image.data[i + cgi]
-    copy.image.data[i + FB_IMAGEDATA_CHANNEL_B] = resource.image.data[i + cbi]
+    copy.image.data[i + FB_CHANNEL_R] = resource.image.data[i + cri]
+    copy.image.data[i + FB_CHANNEL_G] = resource.image.data[i + cgi]
+    copy.image.data[i + FB_CHANNEL_B] = resource.image.data[i + cbi]
     i += 4
   }
 
   // Synchronize
-  fb_sync(copy)
+  copy.context.putImageData(copy.image, 0, 0)
+
+  fb_defer(copy) // FIXME: Do we need to defer?
 
   return copy
 }
 
 /**
  * Create a resource from an asynchronously loaded image
+ * <NoDirtyBit>
  * @param {String} url URL to the image
  * @param {Number} width Resource width (-1 for auto)
  * @param {Number} height Resource height (-1 for auto)
@@ -452,11 +944,13 @@ function fb_load(
   if (url === null)
     return null
 
-  let resource = fb_create(1, 1) // dummy resource
+  // Dummy resource
+  let resource = fb_create(1, 1)
   resource.loaded = false
 
   let img = new Image()
 
+  // Event handler
   img.onload = function() {
     if (width == -1)
       width = img.width
@@ -464,15 +958,40 @@ function fb_load(
     if (height == -1)
       height = img.height
 
+    // Boundary checks
+    if (0 >= width) {
+      resource.error = fb_error(FB_ERR_BAD_WIDTH)
+      return
+    }
+
+    if (0 >= height) {
+      resource.error = fb_error(FB_ERR_BAD_HEIGHT)
+      return
+    }
+
+    if (width > FB_MAX_WIDTH) {
+      resource.error = fb_error(FB_ERR_LARGE_WIDTH)
+      return
+    }
+
+    if (height > FB_MAX_HEIGHT) {
+      resource.error = fb_error(FB_ERR_LARGE_HEIGHT)
+      return
+    }
+
     resource.canvas.width = width
     resource.canvas.height = height
     resource.width = width
     resource.height = height
 
-    resource.context.drawImage(img, 0, 0)
-    resource.image = resource.context.getImageData(0, 0, width, height)
+    fb_draw_source(resource, img, width, height)
 
     resource.loaded = true
+  }
+
+  // Event handler
+  img.onerror = function() {
+    resource.error = fb_error('Cannot load: ' + url, FB_ERR_CANT_LOAD)
   }
 
   img.src = url
@@ -545,13 +1064,15 @@ function fb_draw(
     }
   }
 
+  fb_defer(resource_p)
+
   return true
 }
 
 /**
  * Fill the area with the given color starting from x,y until all
  * occurences of the background color have been replaced in that area.
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} x X axis
  * @param {Number} y Y axis
  * @param {Number} r Red channel
@@ -605,26 +1126,30 @@ function fb_fill(
     fill_stack.push([x, y - 1])
   }
 
+  fb_defer(resource)
+
   return true
 }
 
 /**
  * Retrieve a specific color channel from a resource
- * @param {(Object|String)} resource Framebuffer Resource
- * @param {Number} channel Channel index (0=Red, 1=Green, 2=Blue) (default 0)
+ * // FIXME: test loaded images with alpha
+ * Disclaimer: Alpha channel is white if a resource was created.
+ * @param {FBResource} resource Framebuffer Resource
+ * @param {Number} channel Channel index (0=Red, 1=Green, 2=Blue, 3=Alpha) (default 0)
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_get_channel(resource = null, channel = 0) {
   if (!fb_valid(resource))
     return null
 
-  channel = clamp(channel, 0, 2)
+  channel = clamp(channel, 0, 3)
   return fb_copy(resource, channel, channel, channel)
 }
 
 /**
  * Flip image horizontally (X axis)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_flip_x(resource = null) {
@@ -645,12 +1170,14 @@ function fb_flip_x(resource = null) {
     }
   }
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Flip image vertically (Y axis)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_flip_y(resource = null) {
@@ -671,12 +1198,14 @@ function fb_flip_y(resource = null) {
     }
   }
 
+  fb_defer(resource) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Rotate image right (90 degrees clockwise)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_rotate_right(resource = null) {
@@ -697,12 +1226,14 @@ function fb_rotate_right(resource = null) {
     }
   }
 
+  fb_defer(resource) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Rotate image left (90 degrees counterclockwise)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_rotate_left(resource = null) {
@@ -723,12 +1254,14 @@ function fb_rotate_left(resource = null) {
     }
   }
 
+  fb_defer(resource) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Replace a specific color in the image
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} pr Red channel (parent)
  * @param {Number} pg Green channel (parent)
  * @param {Number} pb Blue channel (parent)
@@ -737,7 +1270,7 @@ function fb_rotate_left(resource = null) {
  * @param {Number} cb Blue channel (child)
  * @returns {(null|Object)} Framebuffer Resource
  */
-function fb_replace_color(resource = null, pr, pg, pb, cr, cg, cb) {
+function fb_color_replace(resource = null, pr, pg, pb, cr, cg, cb) {
   if (!fb_valid(resource))
     return null
 
@@ -754,41 +1287,36 @@ function fb_replace_color(resource = null, pr, pg, pb, cr, cg, cb) {
     }
   }
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Invert colors of an image
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_color_invert(resource = null) {
   if (!fb_valid(resource))
     return null
 
-  let width = resource.width
-  let height = resource.height
   let resource_new = fb_copy(resource)
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let c = fb_get_pixel(resource, x, y)
-
-      // FIXME: Use XOR to revert the colors instead!
-      c[0] = Math.abs(c[0] - 255)
-      c[1] = Math.abs(c[1] - 255)
-      c[2] = Math.abs(c[2] - 255)
-
-      fb_set_pixel(resource_new, x, y, c[0], c[1], c[2])
-    }
+  for (let i = 0; i < resource.image.data.length; i += 4) {
+    resource_new.image.data[i + FB_CHANNEL_R] ^= 255
+    resource_new.image.data[i + FB_CHANNEL_G] ^= 255
+    resource_new.image.data[i + FB_CHANNEL_B] ^= 255
   }
+
+  fb_defer(resource_new) // FIXME: need test
 
   return resource_new
 }
 
 /**
  * Convert image to grayscale
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_color_grayscale(resource = null) {
@@ -810,12 +1338,14 @@ function fb_color_grayscale(resource = null) {
     }
   }
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Convert image to 1-bit
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_color_1bit(resource = null) {
@@ -837,12 +1367,14 @@ function fb_color_1bit(resource = null) {
     }
   }
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Add grayscale noise to an image
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} scale Amount of noise to add ranging from 0.0 to 10.0 (default 0.1)
  * @returns {(null|Object)} Framebuffer Resource
  */
@@ -872,12 +1404,14 @@ function fb_noise_grayscale(resource = null, scale = 0.1) {
     }
   }
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Add RGB noise to an image
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} scale Amount of noise to add ranging from 0.0 to 10.0 (default 0.1)
  * @returns {(null|Object)} Framebuffer Resource
  */
@@ -910,6 +1444,8 @@ function fb_noise_rgb(resource = null, scale = 0.1) {
     }
   }
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
@@ -922,11 +1458,11 @@ function fb_noise_rgb(resource = null, scale = 0.1) {
  * @todo: FIXME: See if 'Row- and column-major order' matters here.
  *               Ideally we'd want to loop over in row-major order
  *               i.e. (X loop inside Y)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Array} matrix Convolution matrix (3x3 or 5x5)
  * @param {Number} divisor How much to divide the average result
  * @param {Number} offset Value to add to the quotient (division result)
- * @returns {(null|Object)} Framebuffer Resource
+ * @returns {(null|FBResource|FBError)} Framebuffer Resource
  */
 function fb_convolution_matrix(
   resource = null,
@@ -938,7 +1474,7 @@ function fb_convolution_matrix(
     return null
 
   if (matrix.length != 9 && matrix.length != 25)
-    throw 'Convolution matrix must be of size 3x3 (9) or 5x5 (25)'
+    return fb_error(FB_ERR_CONVOLUTION_MATRIX_SIZE)
 
   let resource_new = fb_copy(resource)
   let w = resource.width
@@ -1021,13 +1557,11 @@ function fb_convolution_matrix(
            c0[2] + c1[2] + c2[2]) / divisor
         ]
 
-        fb_set_pixel(
-          resource_new,
-          x, y,
-          avg[0] + offset,
-          avg[1] + offset,
-          avg[2] + offset
-        )
+        let pos = w * y * 4 + x * 4
+
+        resource_new.image.data[pos + FB_CHANNEL_R] = avg[0] + offset
+        resource_new.image.data[pos + FB_CHANNEL_G] = avg[1] + offset
+        resource_new.image.data[pos + FB_CHANNEL_B] = avg[2] + offset
       }
     }
   }
@@ -1200,23 +1734,23 @@ function fb_convolution_matrix(
            e0[2] + e1[2] + e2[2] + e3[2] + e4[2]) / divisor,
         ]
 
-        fb_set_pixel(
-          resource_new,
-          x, y,
-          avg[0] + offset,
-          avg[1] + offset,
-          avg[2] + offset
-        )
+        let pos = w * y * 4 + x * 4
+
+        resource_new.image.data[pos + FB_CHANNEL_R] = avg[0] + offset
+        resource_new.image.data[pos + FB_CHANNEL_G] = avg[1] + offset
+        resource_new.image.data[pos + FB_CHANNEL_B] = avg[2] + offset
       }
     }
   }
+
+  fb_defer(resource_new) // FIXME: need test
 
   return resource_new
 }
 
 /**
  * Sharpen the image
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_sharpen(resource = null) {
@@ -1234,17 +1768,20 @@ function fb_sharpen(resource = null) {
     ]
   )
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Resize the image (using nearest neighbor)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} w Width (rounded to nearest place)
  * @param {Number} h Height (rounded to nearest place)
+ * @param {Boolean} restore Return resized resource in its original dimension
  * @returns {(null|Object)} Framebuffer Resource
  */
-function fb_resize(resource = null, w = 0, h = 0) {
+function fb_resize(resource = null, w = 0, h = 0, restore = false) {
   if (!fb_valid(resource))
     return null
 
@@ -1255,6 +1792,10 @@ function fb_resize(resource = null, w = 0, h = 0) {
   // return the affectee resource
   if (w == 0 || w == resource.width && h == 0 || h == resource.height)
     return resource
+
+  // Keep original dimensions
+  let w_copy = resource.width
+  let h_copy = resource.height
 
   let resource_new = fb_create(w, h)
 
@@ -1269,18 +1810,23 @@ function fb_resize(resource = null, w = 0, h = 0) {
 
       for (let i = 0; i < xd; i += xd) {
         for (let j = 0; j < yd; j += yd) {
-          fb_set_pixel(resource_new, x + i, y + j, c[0], c[1], c[2], 255)
+          fb_set_pixel(resource_new, x + i, y + j, c[0], c[1], c[2])
         }
       }
     }
   }
+
+  fb_sync(resource_new)
+
+  if (restore)
+    return fb_resize(resource_new, w_copy, h_copy)
 
   return resource_new
 }
 
 /**
  * Pixelate an image
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} factor How much to divide image dimensions before upsampling (default 2, min 1)
  * @returns {(null|Object)} Framebuffer Resource
  */
@@ -1309,6 +1855,8 @@ function fb_pixelate(resource = null, factor = 2) {
   resource_new = fb_resize(resource_new, sw, sh)
   resource_new = fb_resize(resource_new, ow, oh)
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
@@ -1334,7 +1882,7 @@ function fb_pixelate(resource = null, factor = 2) {
  * then the value that fb_get_pixel() returns by default when out of
  * bounds will be written to the copy resource.
  *
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} x1 X axis (Point 1)
  * @param {Number} y1 Y axis (Point 1)
  * @param {Number} x2 X axis (Point 2)
@@ -1404,12 +1952,14 @@ function fb_crop(resource = null, x1 = 0, y1 = 0, x2 = 1, y2 = 1, mode = 0) {
       )
     }
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Detect edges in an image
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} mode Available modes [0..2]
  * @returns {(null|Object)} Framebuffer Resource
  */
@@ -1451,12 +2001,14 @@ function fb_detect_edge(resource = null, mode = 0) {
       ]
     )
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Box blur
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} max How many times to call the convolution matrix function (min 1)
  * @returns {(null|Object)} Framebuffer Resource
  */
@@ -1478,12 +2030,14 @@ function fb_blur_box(resource = null, max = 1) {
       9
     )
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Gaussian blur
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} max How many times to call the convolution matrix function (min 1)
  * @returns {(null|Object)} Framebuffer Resource
  */
@@ -1505,12 +2059,14 @@ function fb_blur_gaussian(resource = null, max = 1) {
       16
     )
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Emboss
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @param {Number} power How many times to apply the convolution matrix (min 0.01)
  * @returns {(null|Object)} Framebuffer Resource
  */
@@ -1531,12 +2087,14 @@ function fb_emboss(resource = null, power = 1) {
     9
   )
 
+  fb_defer(resource_new) // FIXME: need test
+
   return resource_new
 }
 
 /**
  * Block modifications to the Framebuffer Resource (lock)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {Boolean}
  */
 function fb_lock(resource = null) {
@@ -1549,7 +2107,7 @@ function fb_lock(resource = null) {
 
 /**
  * Allow modifications to the Framebuffer Resource (unlock)
- * @param {(Object|String)} resource Framebuffer Resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {Boolean}
  */
 function fb_unlock(resource = null) {
@@ -1563,6 +2121,7 @@ function fb_unlock(resource = null) {
 /**
  * Replace a Framebuffer Resource with a different one
  * This function synchronizes automatically
+ * <NoDefer>
  * @param {(Object|String)} resource_p Framebuffer Resource (parent)
  * @param {(Object|String)} resource_c Framebuffer Resource (child)
  * @return {Boolean}
@@ -1584,18 +2143,302 @@ function fb_replace(resource_p = null, resource_c = null) {
 
   // Synchronize
   resource_p.context.putImageData(resource_c.image, 0, 0)
-
-  resource_p.image = new ImageData(cw, ch)
-  resource_p.image.data.fill(255)
-
-  for (let i = 0; i < resource_c.image.data.length;) {
-    resource_p.image.data[i + FB_IMAGEDATA_CHANNEL_R] = resource_c.image.data[i + FB_IMAGEDATA_CHANNEL_R]
-    resource_p.image.data[i + FB_IMAGEDATA_CHANNEL_G] = resource_c.image.data[i + FB_IMAGEDATA_CHANNEL_G]
-    resource_p.image.data[i + FB_IMAGEDATA_CHANNEL_B] = resource_c.image.data[i + FB_IMAGEDATA_CHANNEL_B]
-    i += 4
-  }
+  resource_p.image = resource_p.context.getImageData(0, 0, cw, ch)
 
   return true
+}
+
+/**
+ * Alias for 'drawImage' and 'getImageData'.
+ * Internal function.
+ * <NoDefer>
+ * @param {FBResource} resource Framebuffer Resource (parent)
+ * @param {(Element|Object)} source Source Element (see drawImage MDN)
+ * @param {Number} source_width
+ * @param {Number} source_height
+ * @return {Boolean}
+ */
+function fb_draw_source(resource = null, source = null, source_width = null, source_height = null) {
+  if (!fb_valid(resource))
+    return false
+
+  if (source === null)
+    return false
+
+  if (source_width === null)
+    return false
+
+  if (source_height === null)
+    return false
+
+  resource.context.drawImage(source, 0, 0, source_width, source_height)
+  resource.image = resource.context.getImageData(0, 0, source_width, source_height)
+
+  return true
+}
+
+/**
+ * Defer-bit handler.
+ * Internal function.
+ * @param {FBResource} resource Framebuffer Resource
+ * @returns {undefined}
+ */
+function fb_defer(resource = null) {
+  if (!fb_valid(resource))
+    return
+
+  // Defer disabled - synchronize
+  if (resource.defer == FB_DEFER_WRITE_THROUGH)
+    fb_sync(resource)
+}
+
+/**
+ * Configuration getter/setter.
+ * Disclaimer: Always check against FB_ERR_BAD_CFG_* constants (user-code)
+ * @param {String} key Configuration key
+ * @param {mixed} value Value key (use '<default>' to assign default value)
+ * @returns {mixed} True when value set (undefined on invalid key)
+ */
+function fb_config(key = null, value = undefined) {
+  if (key === null)
+    return
+
+  // Invalid key
+  if (!fb_config_map_keys.includes(key))
+    return fb_error(FB_ERR_BAD_CFG_KEY)
+
+  // Get current key value
+  if (value === undefined)
+    return fb_config_map[key].value
+
+  // Set default value
+  if (value === '<default>') {
+    if ('_set' in fb_config_map[key])
+      fb_config_map[key]._set(fb_config_map[key].default, fb_config_map[key])
+    else
+      fb_config_map[key].value = fb_config_map[key].default
+
+    return true
+  }
+
+  // Check if value is allowed
+  if (!fb_config_map[key].allowed.includes(value))
+    return fb_error(FB_ERR_BAD_CFG_VALUE)
+
+  // Set key value
+  if ('_set' in fb_config_map[key])
+    fb_config_map[key]._set(value, fb_config_map[key])
+  else
+    fb_config_map[key].value = value
+
+  return true
+}
+
+/**
+ * Get default value for a configuration key
+ * Disclaimer: Always check against FB_ERR_BAD_CFG_* constants (user-code)
+ * @param {String} key Configuration key
+ * @returns {mixed} Default value (undefined on invalid key)
+ */
+function fb_config_default(key = null) {
+  if (key === null)
+    return
+
+  key = key.toLowerCase()
+
+  if (fb_config_map_keys.includes(key))
+    return fb_config_map[key].default
+
+  return fb_error(FB_ERR_BAD_CFG_KEY)
+}
+
+/**
+ * Synchronize resource configurations with
+ * the global values in 'fb_config_map'.
+ * Stub function.
+ * @returns {FBError}
+ */
+function fb_sync_config() {
+  return fb_error(FB_ERR_STUB_FUNCTION)
+}
+
+/**
+ * Get framebuffer.js version
+ * Returns ISO 8601 (YYYY-MM-DD) on empty format
+ * @param {(null|String)} format Format to use (Y, M, and D letters are replaced with YEAR, MONTH, and DAY)
+ * @returns {String}
+ */
+function fb_version(format = null) {
+  let y = FB_VERSION_YEAR
+  let m = String(FB_VERSION_MONTH).padStart(2, '0')
+  let d = String(FB_VERSION_DAY).padStart(2, '0')
+
+  if (format === null)
+    return y + '-' + m + '-' + d
+
+  format = format.replace(/Y/g, y)
+                 .replace(/M/g, m)
+                 .replace(/D/g, d)
+
+  return format
+}
+
+/**
+ * Hook a function
+ * @param {String} func Function name
+ * @param {Number} hook_func Hooked function
+ * @param {Boolean} active Activate hook on creation
+ * @returns {(String|Boolean|FBError)}
+ */
+function fb_hook(func = null, hook_func = null, active = true) {
+  if (func === null)
+    return false
+
+  // Not a string
+  if (typeof func !== 'string')
+    return false
+
+  // Function is blacklisted from being hooked via library methods
+  if (fb_hook_blacklist.includes(func))
+    return fb_error(FB_ERR_FUNC_BLACKLISTED)
+
+  // Function already hooked
+  //
+  // 'true' because it's already hooked
+  // no error checks need to be done
+  if (fb_hooked(func))
+    return true
+
+  // Initialize hook store
+  fb_hooked_functions[func] = {
+    active: false,
+    original: window[func],
+    hooked: hook_func,
+  }
+
+  fb_hooked_functions[func].hooked.name = func
+
+  // Reference to the hook
+  window[func] = fb_hooked_functions[func].original
+
+  // Activate hook on creation
+  if (active)
+    fb_hook_enable(func)
+
+  return true
+}
+
+/**
+ * Is the function hook enabled?
+ * @param {String} func Function name
+ * @returns {Boolean}
+ */
+function fb_hook_active(func = null) {
+  return fb_hooked(func) && fb_hooked_functions[func].active
+}
+
+/**
+ * Call original function from a hook.
+ * Used inside fb_hook()'s callback function.
+ * @param {String} func Function name
+ * @param {Array} args Array of arguments
+ * @returns {Boolean}
+ */
+function fb_hook_call(func = null, args = []) {
+  if (func === null)
+    return false
+
+  // Not a string
+  if (typeof func !== 'string')
+    return false
+
+  // Not hooked
+  if (!fb_hooked(func))
+    return false
+
+  // Call function
+  return fb_hooked_functions[func].original(...args)
+}
+
+/**
+ * Disable function hook
+ * @param {String} func Function name
+ * @returns {Boolean}
+ */
+function fb_hook_disable(func = null) {
+  // Not hooked
+  if (!fb_hooked(func))
+    return false
+
+  // Disable hook
+  fb_hooked_functions[func].active = false
+  window[func] = fb_hooked_functions[func].original
+
+  return true
+}
+
+/**
+ * Enable function hook
+ * @param {String} func Function name
+ * @returns {Boolean}
+ */
+function fb_hook_enable(func = null) {
+  // Not hooked
+  if (!fb_hooked(func))
+    return false
+
+  // Enable hook
+  fb_hooked_functions[func].active = true
+  window[func] = fb_hooked_functions[func].hooked
+
+  return true
+}
+
+/**
+ * Check to see that a function is hooked
+ * @param {String} func Function name
+ * @returns {Boolean}
+ */
+function fb_hooked(func = null) {
+  if (func === null)
+    return false
+
+  // Not a string
+  if (typeof func !== 'string')
+    return false
+
+  return func in fb_hooked_functions
+}
+
+/**
+ * Unhook a function
+ * @param {String} func Function name
+ * @returns {Boolean}
+ */
+function fb_unhook(func = null) {
+  // Not hooked
+  if (!fb_hooked(func))
+    return false
+
+  // Restore original function
+  window[func] = fb_hooked_functions[func].original
+
+  // Delete hook
+  delete fb_hooked_functions[func]
+
+  return true
+}
+
+/**
+ * Generate Data URL for the Resource image.
+ * @param {FBResource} resource
+ * @returns {String|null} Data URL
+ */
+function fb_data_url(resource = null) {
+  if (!fb_valid(resource))
+    return null
+
+  return resource.canvas.toDataURL()
 }
 
 /**

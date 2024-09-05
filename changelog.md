@@ -1,0 +1,51 @@
+# Changelog
+
+# 2024-09-05
+
+- Added `error` field assignment in `fb_load` on error.
+- Added `restore` argument to `fb_resize` for restorting the original size after downsampling
+- Added bi-directional map of error definitions at `fb_error_ids`
+- Added boundary checks in `fb_load`
+- Added configuration for the runtime of the library (see `fb_config_map`)
+- Added constants `FB_VERSION_` denoting Year, Month, and Day of the library release
+- Added constants: `FB_DEFER_WRITE_THROUGH` and `FB_DEFER_WRITE_BACK` as defer types
+- Added function: `fb_clear_errors`
+- Added function: `fb_config_default`
+- Added function: `fb_config`
+- Added function: `fb_data_url`
+- Added function: `fb_defer`
+- Added function: `fb_describe_error`
+- Added function: `fb_draw_source`
+- Added function: `fb_error_exists`
+- Added function: `fb_error_id`
+- Added function: `fb_error_map_value`
+- Added function: `fb_error_text`
+- Added function: `fb_error`
+- Added function: `fb_get_last_error`
+- Added function: `fb_hook_active`
+- Added function: `fb_hook_call`
+- Added function: `fb_hook_disable`
+- Added function: `fb_hook_enable`
+- Added function: `fb_hook`
+- Added function: `fb_hooked`
+- Added function: `fb_list_functions`
+- Added function: `fb_resource_list_add`
+- Added function: `fb_resource_list_filter`
+- Added function: `fb_sync_config`
+- Added function: `fb_unhook`
+- Added function: `fb_version`
+- Added prototype: `FBError`
+- Added prototype: `FBErrorDefinition`
+- Added prototype: `FBResource`
+- Added support for hooking functions for debug and test
+- Changed `fb_sync` to allow variable arguments
+- Changed `fb_valid` to include prototype checks and more fields
+- Fixed `fb_line` rounding error causing empty gaps near connecting lines
+- Fixed dirty-bit assignment only used in `fb_set_pixel` and `fb_sync` (as needed)
+- Fixed rounding error of coordinates in `fb_set_pixel`
+- Rename function `fb_replace_color` to `fb_color_replace`
+- Renamed constants `FB_IMAGEDATA_CHANNEL_X` to `FB_CHANNEL_X`
+- Renamed constants `FB_MAX_ALLOWED_(WIDTH|HEIGHT)` to `FB_MAX_(WIDTH|HEIGHT)`
+- Use linear data access in `fb_clear`
+- Use linear data access in `fb_color_invert`
+- Use linear data access in `fb_convolution_matrix`
