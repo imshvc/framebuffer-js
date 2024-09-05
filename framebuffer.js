@@ -3,7 +3,7 @@
 // License: WTFPL v2 (See license.txt)
 // Project: https://github.com/imshvc/framebuffer-js
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-09-05 02:46 AM
+// Updated: 2024-09-05 04:41 AM
 
 // Calendar Versioning (CalVer)
 //
@@ -28,187 +28,6 @@ function FBError(text = null, id = null) {
 function FBErrorDefinition(text = null, id = null) {
   this.text = text
   this.id = id
-}
-
-/**
- * Generate an error (or check if value is one)
- * Polymorphic function.
- * @param {String|FBError} text Error description, FBError, or FBResource object.
- * @param {String} id Error ID
- * @returns {FBError|Boolean} FBError is returned on error creation
- */
-function fb_error(text = null, id = 'FB_ERR_USER_GENERATED') {
-  // Error check
-  if (text instanceof FBError)
-    return true
-
-  // Resource check
-  if (text instanceof FBResource)
-    return fb_error(text.error)
-
-  // Built-in error check
-  if (text instanceof FBErrorDefinition)
-    return fb_error(text.text, text.id)
-
-  // Not text
-  if (typeof text !== 'string')
-    text = ''
-
-  // Text can be null
-  if (text === null)
-    text = ''
-
-  text = text.trim()
-
-  // ID check
-  if (id instanceof FBErrorDefinition)
-    id = id.id
-  else if (id != 'FB_ERR_USER_GENERATED')
-    id = 'FB_ERR_UNSPECIFIED'
-
-  let error = new FBError(text, id)
-
-  // Logging enabled
-  if (fb_config('log_errors'))
-    window.fb_errors.push(error)
-
-  return error
-}
-
-/**
- * Get error value either by ID or Text
- * Internal function.
- * @param {String} value Error ID or Text
- * @returns {String|Null}
- */
-function fb_error_map_value(value = null) {
-  if (value === null)
-    return null
-
-  let errors = window.fb_error_ids
-
-  if (fb_error_exists(value))
-    return errors[value]
-
-  return null
-}
-
-/**
- * Translate Error ID to Text
- * @param {String|FBError} value Error ID
- * @returns {String|Null}
- */
-function fb_error_id(value = null) {
-  if (value === null)
-    return null
-
-  if (value instanceof FBError)
-    value = value.id
-
-  if (value.trim().length == 0)
-    return null
-
-  // Invalid ID
-  if (value.length < 7 || value.toUpperCase().substring(0, 7) !== 'FB_ERR_')
-    return null
-
-  return fb_error_map_value(value)
-}
-
-/**
- * Translate Error Text to ID
- * @param {String|FBError} value Error Text
- * @returns {String|Null}
- */
-function fb_error_text(value = null) {
-  if (value === null)
-    return null
-
-  if (value instanceof FBError)
-    value = value.text
-
-  if (value.trim().length == 0)
-    return null
-
-  // Passed ID instead of Text
-  if (value.length >= 7 && value.toUpperCase().substring(0, 7) === 'FB_ERR_')
-    return null
-
-  return fb_error_map_value(value)
-}
-
-/**
- * Check if error definition exists.
- * Internal function.
- * @param {String|FBError} id Error ID, Description, or FBError Object
- */
-function fb_error_exists(id = null) {
-  if (id === null)
-    return id
-
-  if (id instanceof FBError)
-    id = id.id
-
-  return id in window.fb_error_ids
-}
-
-/**
- * List/filter Framebuffer JS functions
- * @param {String} var_args Strings to filter against function names
- * @returns {Array}
- */
-function fb_list_functions(var_args) {
-  let filters = [...arguments]
-  let list = {}
-
-  // for each 'key' in window
-  for (let k in window) {
-
-    // if k starts with 'fb_' and is a function
-    if (k.startsWith('fb_') && typeof window[k] === 'function') {
-
-      // filters specified, need to loop
-      if (filters.length > 0) {
-        for (let str of filters) {
-          // function name contains 'str' from 'filters'
-          if (k.includes(str))
-            list[k] = 0
-        }
-
-        // continue to next filter item
-        continue
-      }
-
-      // no filter specified
-      list[k] = 0
-    }
-  }
-
-  return Object.keys(list)
-}
-
-/**
- * Get last error that was logged
- * @returns {FBError|null}
- */
-function fb_get_last_error() {
-  let errors = window.fb_errors
-
-  if (errors.length == 0)
-    return null
-
-  if (!fb_config('log_errors'))
-    return null
-
-  return errors[errors.length - 1]
-}
-
-/**
- * Clear error log
- * @returns {undefined}
- */
-function fb_clear_errors() {
-  window.fb_errors.length = 0
 }
 
 // Default Canvas Context Attributes
@@ -288,31 +107,6 @@ for (let id in fb_error_ids) {
   window[id] = fb_error_ids[id]
 }
 
-/**
- * Describe error IDs to their descriptions and vice-versa
- * @param {String|FBError} id Error ID, Description, or FBError Object
- * @returns {String|null}
- */
-function fb_describe_error(id = null) {
-  if (id === null)
-    return id
-
-  if (id instanceof FBError)
-    id = id.id
-
-  if (!fb_error_exists(id))
-    return null
-
-  let errors = window.fb_error_ids
-
-  // value -> key
-  if (id.toUpperCase().substring(0, 7) !== 'FB_ERR_')
-    return errors[errors[id]]
-
-  // key -> value
-  return errors[id]
-}
-
 // Object containing hooked functions
 // See 'fb_hook()' function.
 // Wiki: https://en.wikipedia.org/wiki/Hooking
@@ -338,34 +132,6 @@ var fb_resource_list = []
 // Disabled by default.  Use fb_config()
 // to enable logging.
 var fb_errors = []
-
-/**
- * Add resource reference to the resource list
- * @param {FBResource} resource Framebuffer Resource
- * @returns {Boolean}
- */
-function fb_resource_list_add(resource = null) {
-  // Disabled by configuration
-  if (!fb_config('use_resource_list'))
-    return false
-
-  if (!fb_valid(resource))
-    return false
-
-  window.fb_resource_list.push(resource)
-  return true
-}
-
-/**
- * Filter created resources by their property values.
- * Multiple filters allowed. Including callbacks.
- * @param {Object|FBError}
- * @returns {Object|FBError}
- */
-function fb_resource_list_filter(var_args) {
-  if (!fb_config('use_resource_list'))
-    return
-}
 
 // Configuration map keys accessible by 'fb_config()'
 var fb_config_map_keys = [
@@ -2439,6 +2205,240 @@ function fb_data_url(resource = null) {
     return null
 
   return resource.canvas.toDataURL()
+}
+
+/**
+ * Add resource reference to the resource list
+ * @param {FBResource} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_resource_list_add(resource = null) {
+  // Disabled by configuration
+  if (!fb_config('use_resource_list'))
+    return false
+
+  if (!fb_valid(resource))
+    return false
+
+  window.fb_resource_list.push(resource)
+  return true
+}
+
+/**
+ * Filter created resources by their property values.
+ * Multiple filters allowed. Including callbacks.
+ * @param {Object|FBError}
+ * @returns {Object|FBError}
+ */
+function fb_resource_list_filter(var_args) {
+  if (!fb_config('use_resource_list'))
+    return
+}
+
+/**
+ * Generate an error (or check if value is one)
+ * Polymorphic function.
+ * @param {String|FBError} text Error description, FBError, or FBResource object.
+ * @param {String} id Error ID
+ * @returns {FBError|Boolean} FBError is returned on error creation
+ */
+function fb_error(text = null, id = 'FB_ERR_USER_GENERATED') {
+  // Error check
+  if (text instanceof FBError)
+    return true
+
+  // Resource check
+  if (text instanceof FBResource)
+    return fb_error(text.error)
+
+  // Built-in error check
+  if (text instanceof FBErrorDefinition)
+    return fb_error(text.text, text.id)
+
+  // Not text
+  if (typeof text !== 'string')
+    text = ''
+
+  // Text can be null
+  if (text === null)
+    text = ''
+
+  text = text.trim()
+
+  // ID check
+  if (id instanceof FBErrorDefinition)
+    id = id.id
+  else if (id != 'FB_ERR_USER_GENERATED')
+    id = 'FB_ERR_UNSPECIFIED'
+
+  let error = new FBError(text, id)
+
+  // Logging enabled
+  if (fb_config('log_errors'))
+    window.fb_errors.push(error)
+
+  return error
+}
+
+/**
+ * Get error value either by ID or Text
+ * Internal function.
+ * @param {String} value Error ID or Text
+ * @returns {String|Null}
+ */
+function fb_error_map_value(value = null) {
+  if (value === null)
+    return null
+
+  let errors = window.fb_error_ids
+
+  if (fb_error_exists(value))
+    return errors[value]
+
+  return null
+}
+
+/**
+ * Translate Error ID to Text
+ * @param {String|FBError} value Error ID
+ * @returns {String|Null}
+ */
+function fb_error_id(value = null) {
+  if (value === null)
+    return null
+
+  if (value instanceof FBError)
+    value = value.id
+
+  if (value.trim().length == 0)
+    return null
+
+  // Invalid ID
+  if (value.length < 7 || value.toUpperCase().substring(0, 7) !== 'FB_ERR_')
+    return null
+
+  return fb_error_map_value(value)
+}
+
+/**
+ * Translate Error Text to ID
+ * @param {String|FBError} value Error Text
+ * @returns {String|Null}
+ */
+function fb_error_text(value = null) {
+  if (value === null)
+    return null
+
+  if (value instanceof FBError)
+    value = value.text
+
+  if (value.trim().length == 0)
+    return null
+
+  // Passed ID instead of Text
+  if (value.length >= 7 && value.toUpperCase().substring(0, 7) === 'FB_ERR_')
+    return null
+
+  return fb_error_map_value(value)
+}
+
+/**
+ * Check if error definition exists.
+ * Internal function.
+ * @param {String|FBError} id Error ID, Description, or FBError Object
+ */
+function fb_error_exists(id = null) {
+  if (id === null)
+    return id
+
+  if (id instanceof FBError)
+    id = id.id
+
+  return id in window.fb_error_ids
+}
+
+/**
+ * List/filter Framebuffer JS functions
+ * @param {String} var_args Strings to filter against function names
+ * @returns {Array}
+ */
+function fb_list_functions(var_args) {
+  let filters = [...arguments]
+  let list = {}
+
+  // for each 'key' in window
+  for (let k in window) {
+
+    // if k starts with 'fb_' and is a function
+    if (k.startsWith('fb_') && typeof window[k] === 'function') {
+
+      // filters specified, need to loop
+      if (filters.length > 0) {
+        for (let str of filters) {
+          // function name contains 'str' from 'filters'
+          if (k.includes(str))
+            list[k] = 0
+        }
+
+        // continue to next filter item
+        continue
+      }
+
+      // no filter specified
+      list[k] = 0
+    }
+  }
+
+  return Object.keys(list)
+}
+
+/**
+ * Get last error that was logged
+ * @returns {FBError|null}
+ */
+function fb_get_last_error() {
+  let errors = window.fb_errors
+
+  if (errors.length == 0)
+    return null
+
+  if (!fb_config('log_errors'))
+    return null
+
+  return errors[errors.length - 1]
+}
+
+/**
+ * Clear error log
+ * @returns {undefined}
+ */
+function fb_clear_errors() {
+  window.fb_errors.length = 0
+}
+
+/**
+ * Describe error IDs to their descriptions and vice-versa
+ * @param {String|FBError} id Error ID, Description, or FBError Object
+ * @returns {String|null}
+ */
+function fb_describe_error(id = null) {
+  if (id === null)
+    return id
+
+  if (id instanceof FBError)
+    id = id.id
+
+  if (!fb_error_exists(id))
+    return null
+
+  let errors = window.fb_error_ids
+
+  // value -> key
+  if (id.toUpperCase().substring(0, 7) !== 'FB_ERR_')
+    return errors[errors[id]]
+
+  // key -> value
+  return errors[id]
 }
 
 /**
