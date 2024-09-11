@@ -17,6 +17,7 @@
 - Changed `fb_error_ids` to `fb_error_defs`.
 - Changed `fb_draw` to use canvas built-in methods for updating pixels (no need for loops, faster).
 - Fixed `fb_draw`, truncate all integers to prevent float precision error.
+- Fixed error definition `FB_ERR_BAD_HEIGHT` and `FB_ERR_BAD_HEIGHT` the same.
 - Removed bi-directional lookup of error definitions - unnecessary complexity.
 - Removed function: `fb_error_text` - Translate Error Text to ID.
 - Removed function: `fb_error_id` in favor of `fb_describe_error`.

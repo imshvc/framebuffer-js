@@ -3,7 +3,7 @@
 // License: WTFPL v2 (See license.txt)
 // Project: https://github.com/imshvc/framebuffer-js
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-09-11 10:35 PM
+// Updated: 2024-09-11 11:01 PM
 
 // Calendar Versioning (CalVer)
 //
@@ -86,7 +86,7 @@ const FB_DEFER_WRITE_BACK = 1
 var fb_error_defs = {
   FB_ERR_UNSPECIFIED: 'unspecified error',
   FB_ERR_BAD_WIDTH: 'width less than or equal to zero (0 >= width)',
-  FB_ERR_BAD_HEIGHT: 'width less than or equal to zero (0 >= height)',
+  FB_ERR_BAD_HEIGHT: 'height less than or equal to zero (0 >= height)',
   FB_ERR_LARGE_WIDTH: 'width larger than allowed size (>' + FB_MAX_WIDTH + ')',
   FB_ERR_LARGE_HEIGHT: 'height larger than allowed size (>' + FB_MAX_HEIGHT + ')',
   FB_ERR_STUB_FUNCTION: 'stub function or method',
