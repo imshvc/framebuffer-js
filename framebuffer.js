@@ -3,7 +3,7 @@
 // License: WTFPL v2 (See license.txt)
 // Project: https://github.com/imshvc/framebuffer-js
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-09-05 04:41 AM
+// Updated: 2024-09-11 10:35 PM
 
 // Calendar Versioning (CalVer)
 //
@@ -12,16 +12,24 @@
 // See 3: https://en.wikipedia.org/wiki/ISO_8601#Calendar_dates
 const FB_VERSION_YEAR = 2024
 const FB_VERSION_MONTH = 9
-const FB_VERSION_DAY = 5
+const FB_VERSION_DAY = 11
+
+// Origin types (useful for logging, errors, etc)
+var FB_ORIGIN_SYSTEM = 0
+var FB_ORIGIN_USER = 1
 
 // Prototypes
 function FBResource() {
   Object.assign(this, ...arguments)
 }
 
-function FBError(text = null, id = null) {
+function FBError(text = null, id = null, origin = FB_ORIGIN_USER, function_name = null, function_arguments = null) {
   this.text = text
   this.id = id
+  this.origin = origin
+  this.function = {}
+  this.function.name = function_name
+  this.function.arguments = function_arguments
   this.created = +Date.now() // UNIX time on creation
 }
 
@@ -31,7 +39,7 @@ function FBErrorDefinition(text = null, id = null) {
 }
 
 // Default Canvas Context Attributes
-// Source: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
+// See: https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext
 var fb_canvas_context_attributes = {
   // A boolean value that indicates if the canvas contains an alpha channel.
   // If set to 'false', the browser now knows that the backdrop is always opaque,
@@ -75,7 +83,7 @@ const FB_DEFER_WRITE_THROUGH = 0
 const FB_DEFER_WRITE_BACK = 1
 
 // Error definitions - Bi-directional map
-var fb_error_ids = {
+var fb_error_defs = {
   FB_ERR_UNSPECIFIED: 'unspecified error',
   FB_ERR_BAD_WIDTH: 'width less than or equal to zero (0 >= width)',
   FB_ERR_BAD_HEIGHT: 'width less than or equal to zero (0 >= height)',
@@ -87,24 +95,29 @@ var fb_error_ids = {
   FB_ERR_BAD_CFG_VALUE: 'bad configuration value',
   FB_ERR_BAD_HOOK_TYPE: 'bad function hook type',
   FB_ERR_HOOK_CALL_FAILED: 'hook call failed',
-  FB_ERR_CANT_LOAD: 'cannot load',
+  FB_ERR_PATH_NOT_FOUND: 'path not found',
+  FB_ERR_FILE_NOT_FOUND: 'file not found',
+  FB_ERR_INVALID_FUNCTION: 'invalid function',
+  FB_ERR_INVALID_ACCESS: 'invalid access',
+  FB_ERR_INVALID_DATA: 'invalid data',
   FB_ERR_USER_GENERATED: 'user generated error',
   FB_ERR_UNHANDLED_CASE: 'unhandled case',
   FB_ERR_RES_LIST_DISABLED: 'resource list disabled by configuration',
   FB_ERR_CONVOLUTION_MATRIX_SIZE: 'convolution matrix must be of size 3x3 (9) or 5x5 (25)',
+  FB_ERR_BAD_RESOURCE_STRUCTURE: 'bad resource structure',
+  FB_ERR_FROM_SYSTEM: 'system-initiated error',
+  FB_ERR_CANVAS_NOT_SUPPORTED: 'canvas not supported',
 }
 
-for (let id in fb_error_ids) {
-  // opposite-direction lookup
-  let text = fb_error_ids[id]
+for (let id in fb_error_defs) {
+  let text = fb_error_defs[id]
 
   // create an error definition to differentiate
   // between built-in and user-provided errors
-  fb_error_ids[id] = new FBErrorDefinition(text, id)
-  fb_error_ids[text] = fb_error_ids[id]
+  fb_error_defs[id] = new FBErrorDefinition(text, id)
 
   // assign global variable as reference to error text
-  window[id] = fb_error_ids[id]
+  window[id] = fb_error_defs[id]
 }
 
 // Object containing hooked functions
@@ -225,6 +238,9 @@ function fb_create(width = 0, height = 0) {
   width |= 0
   height |= 0
 
+  let FN_NAME = 'fb_create'
+  let FN_ARGS = [...arguments]
+
   let resource = new FBResource({
     canvas: null,
     width: width,
@@ -281,22 +297,22 @@ function fb_create(width = 0, height = 0) {
 
   // Boundary checks
   if (0 >= width) {
-    resource.error = fb_error(FB_ERR_BAD_WIDTH)
+    resource.error = fb_error(FB_ERR_BAD_WIDTH, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
     return resource
   }
 
   if (0 >= height) {
-    resource.error = fb_error(FB_ERR_BAD_HEIGHT)
+    resource.error = fb_error(FB_ERR_BAD_HEIGHT, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
     return resource
   }
 
   if (width > FB_MAX_WIDTH) {
-    resource.error = fb_error(FB_ERR_LARGE_WIDTH)
+    resource.error = fb_error(FB_ERR_LARGE_WIDTH, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
     return resource
   }
 
   if (height > FB_MAX_HEIGHT) {
-    resource.error = fb_error(FB_ERR_LARGE_HEIGHT)
+    resource.error = fb_error(FB_ERR_LARGE_HEIGHT, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
     return resource
   }
 
@@ -308,8 +324,10 @@ function fb_create(width = 0, height = 0) {
     '2d', fb_canvas_context_attributes
   )
 
-  if (resource.context === null)
-    throw 'Canvas is not supported on this platform'
+  if (resource.context === null) {
+    resource.error = fb_error(FB_ERR_CANVAS_NOT_SUPPORTED, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
+    return resource
+  }
 
   resource.image = new ImageData(width, height)
   resource.image.data.fill(255)
@@ -334,11 +352,26 @@ function fb_sync(var_args) {
 
     ++count
     resource.context.putImageData(resource.image, 0, 0)
-    resource.dirty = 0
-    resource.updated = +Date.now()
+    fb_update(resource)
   }
 
   return count
+}
+
+/**
+ * Update resource and reset dirty-bit
+ * Internal function.
+ * @param {FBResource} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_update(resource = null) {
+  if (!fb_valid(resource))
+    return false
+
+  resource.dirty = 0
+  resource.updated = +Date.now()
+
+  return true
 }
 
 /**
@@ -408,6 +441,23 @@ function fb_spawn(resource = null, container = null) {
     throw 'fb_spawn expects container to be an element (got null)'
 
   container.append(resource.canvas)
+}
+
+/**
+ * Despawn resource from its container
+ * @param {FBResource} resource Framebuffer Resource
+ * @returns {Boolean}
+ */
+function fb_despawn(resource = null) {
+  if (!fb_valid(resource))
+    return false
+
+  if (resource?.canvas?.parentElement === null)
+    return false
+
+  resource?.canvas?.parentElement?.removeChild(resource?.canvas)
+
+  return true
 }
 
 /**
@@ -697,18 +747,37 @@ function fb_copy(resource = null, cri = 0, cgi = 1, cbi = 2) {
 /**
  * Create a resource from an asynchronously loaded image
  * <NoDirtyBit>
- * @param {String} url URL to the image
- * @param {Number} width Resource width (-1 for auto)
- * @param {Number} height Resource height (-1 for auto)
+ * @param {String} path Path or URL to an image
+ * @param {Number|Function} width Resource width (-1 for auto), or a callback after load
+ * @param {Number|Function} height Resource height (-1 for auto), or a callback after error
  * @returns {(null|Object)} Framebuffer Resource
  */
 function fb_load(
-  url = null,  // URL of the image
+  path = null,  // URL of the image
   width = -1,  // Resource width (-1 for auto)
   height = -1, // Resource height (-1 for auto)
 ) {
-  if (url === null)
+  if (path === null)
     return null
+
+  let FN_NAME = 'fb_load'
+  let FN_ARGS = [...arguments]
+
+  // Dummy callbacks on default
+  let after_load = function() {}
+  let after_error = function() {}
+
+  // after load callback
+  if (typeof width === 'function') {
+    after_load = width
+    width = -1
+  }
+
+  // after error callback
+  if (typeof height === 'function') {
+    after_error = height
+    height = -1
+  }
 
   // Dummy resource
   let resource = fb_create(1, 1)
@@ -726,22 +795,26 @@ function fb_load(
 
     // Boundary checks
     if (0 >= width) {
-      resource.error = fb_error(FB_ERR_BAD_WIDTH)
+      resource.error = fb_error(FB_ERR_BAD_WIDTH, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
+      after_error(resource, path)
       return
     }
 
     if (0 >= height) {
-      resource.error = fb_error(FB_ERR_BAD_HEIGHT)
+      resource.error = fb_error(FB_ERR_BAD_HEIGHT, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
+      after_error(resource, path)
       return
     }
 
     if (width > FB_MAX_WIDTH) {
-      resource.error = fb_error(FB_ERR_LARGE_WIDTH)
+      resource.error = fb_error(FB_ERR_LARGE_WIDTH, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
+      after_error(resource, path)
       return
     }
 
     if (height > FB_MAX_HEIGHT) {
-      resource.error = fb_error(FB_ERR_LARGE_HEIGHT)
+      resource.error = fb_error(FB_ERR_LARGE_HEIGHT, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
+      after_error(resource, path)
       return
     }
 
@@ -753,33 +826,34 @@ function fb_load(
     fb_draw_source(resource, img, width, height)
 
     resource.loaded = true
+
+    after_load(resource, path)
   }
 
   // Event handler
   img.onerror = function() {
-    resource.error = fb_error('Cannot load: ' + url, FB_ERR_CANT_LOAD)
+    resource.error = fb_error(FB_ERR_PATH_NOT_FOUND, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
+    after_error(resource, path)
   }
 
-  img.src = url
+  img.src = path
 
   return resource
 }
 
 /**
  * Draw the contents from a resource child to the resource parent
+ * <NoDefer>
  * @todo FIXME: Replace fb_set_pixel with Canvas' built-in 'drawImage' equivalent
- * @param {(Object|String)} resource_p Framebuffer Resource we're drawing to (parent)
- * @param {(Object|String)} resource_c Framebuffer Resource being drawn (child)
+ * @todo FIXME: Replace O(n2) loop with O(1) linear access
+ * @param {FBResource} resource_p Framebuffer Resource we're drawing to (parent)
+ * @param {FBResource} resource_c Framebuffer Resource being drawn (child)
  * @param {Number} x X axis
  * @param {Number} y Y axis
  * @param {Number} w Width (-1 is child's width)
  * @param {Number} h Height (-1 is child's height)
  * @param {Number} ox X axis offset
  * @param {Number} oy Y axis offset
- * @param {Boolean} transparent Treat tX colors as transparency
- * @param {Number} tr Red channel as transparency (-1 is none)
- * @param {Number} tg Green channel as transparency (-1 is none)
- * @param {Number} tb Blue channel as transparency (-1 is none)
  * @returns {Boolean}
  */
 function fb_draw(
@@ -791,10 +865,6 @@ function fb_draw(
   h = -1,
   ox = 0,
   oy = 0,
-  transparent = false,
-  tr = -1,
-  tg = -1,
-  tb = -1
 ) {
   if (!fb_valid(resource_p))
     return false
@@ -804,6 +874,13 @@ function fb_draw(
 
   w = clamp(w, -1, resource_c.width) | 0
   h = clamp(h, -1, resource_c.height) | 0
+
+  x |= 0
+  y |= 0
+  w |= 0
+  h |= 0
+  ox |= 0
+  oy |= 0
 
   // Don't draw
   if (w == 0 && h == 0)
@@ -817,20 +894,10 @@ function fb_draw(
   if (h == -1)
     h = resource_c.height
 
-  for (let x1 = 0; x1 < w; x1++) {
-    for (let y1 = 0; y1 < h; y1++) {
-      if (resource_p.width > x1 + x && resource_p.height > y1 + y) {
-        let c = fb_get_pixel(resource_c, x1 + ox, y1 + oy)
-
-        if (transparent && c[0] == tr && c[1] == tg && c[2] == tb)
-          continue
-
-        fb_set_pixel(resource_p, x1 + x, y1 + y, c[0], c[1], c[2])
-      }
-    }
-  }
-
-  fb_defer(resource_p)
+  // Synchronize
+  resource_p.context.putImageData(resource_c.image, x, y, ox, oy, w, h)
+  resource_p.image = resource_p.context.getImageData(0, 0, w, h)
+  fb_update(resource_p)
 
   return true
 }
@@ -1239,8 +1306,11 @@ function fb_convolution_matrix(
   if (!fb_valid(resource))
     return null
 
+  let FN_NAME = 'fb_convolution_matrix'
+  let FN_ARGS = [...arguments]
+
   if (matrix.length != 9 && matrix.length != 25)
-    return fb_error(FB_ERR_CONVOLUTION_MATRIX_SIZE)
+    return fb_error(FB_ERR_CONVOLUTION_MATRIX_SIZE, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
 
   let resource_new = fb_copy(resource)
   let w = resource.width
@@ -1969,9 +2039,12 @@ function fb_config(key = null, value = undefined) {
   if (key === null)
     return
 
+  let FN_NAME = 'fb_config'
+  let FN_ARGS = [...arguments]
+
   // Invalid key
   if (!fb_config_map_keys.includes(key))
-    return fb_error(FB_ERR_BAD_CFG_KEY)
+    return fb_error(FB_ERR_BAD_CFG_KEY, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
 
   // Get current key value
   if (value === undefined)
@@ -1989,7 +2062,7 @@ function fb_config(key = null, value = undefined) {
 
   // Check if value is allowed
   if (!fb_config_map[key].allowed.includes(value))
-    return fb_error(FB_ERR_BAD_CFG_VALUE)
+    return fb_error(FB_ERR_BAD_CFG_VALUE, FB_ORIGIN_SYSTEM, FN_NAME, FN_ARGS)
 
   // Set key value
   if ('_set' in fb_config_map[key])
@@ -2015,7 +2088,7 @@ function fb_config_default(key = null) {
   if (fb_config_map_keys.includes(key))
     return fb_config_map[key].default
 
-  return fb_error(FB_ERR_BAD_CFG_KEY)
+  return fb_error(FB_ERR_BAD_CFG_KEY, FB_ORIGIN_SYSTEM, 'fb_config_defaults', [...arguments])
 }
 
 /**
@@ -2025,7 +2098,7 @@ function fb_config_default(key = null) {
  * @returns {FBError}
  */
 function fb_sync_config() {
-  return fb_error(FB_ERR_STUB_FUNCTION)
+  return fb_error(FB_ERR_STUB_FUNCTION, FB_ORIGIN_SYSTEM, 'fb_sync_config', [...arguments])
 }
 
 /**
@@ -2066,7 +2139,7 @@ function fb_hook(func = null, hook_func = null, active = true) {
 
   // Function is blacklisted from being hooked via library methods
   if (fb_hook_blacklist.includes(func))
-    return fb_error(FB_ERR_FUNC_BLACKLISTED)
+    return fb_error(FB_ERR_FUNC_BLACKLISTED, FB_ORIGIN_SYSTEM, 'fb_hook', [...arguments])
 
   // Function already hooked
   //
@@ -2196,8 +2269,53 @@ function fb_unhook(func = null) {
 }
 
 /**
+ * Hook helper: Print function arguments
+ * @param {String} func Function name
+ * @param {Array} args Array of arguments passed to a function
+ * @returns {String} Function call output
+ */
+function fb_hook_log_args(func = null, args = null, returned = null) {
+  if (func === null)
+    return
+
+  let result = func + '('
+
+  for (let i in args) {
+    let arg = args[i]
+
+    if (i > 0 && i < args.length)
+      result += ', '
+
+    switch (typeof arg) {
+      default:
+      case 'number':
+        result += arg
+        break
+
+      case 'string':
+        result += '"' + arg + '"'
+        break
+
+      case 'object':
+        if (arg instanceof Array)
+          result += '[Array (' + arg.length + ' items)]'
+        else
+          result += '[Object (' + Object.keys(arg).length + ' items)]'
+        break
+    }
+
+    if (i + 1 > args.length) {
+      result += ') = ' + returned
+      break
+    }
+  }
+
+  return result
+}
+
+/**
  * Generate Data URL for the Resource image.
- * @param {FBResource} resource
+ * @param {FBResource} resource Framebuffer Resource
  * @returns {String|null} Data URL
  */
 function fb_data_url(resource = null) {
@@ -2227,7 +2345,7 @@ function fb_resource_list_add(resource = null) {
 /**
  * Filter created resources by their property values.
  * Multiple filters allowed. Including callbacks.
- * @param {Object|FBError}
+ * @param {Object|FBError} var_args Objects to filter against resource objects
  * @returns {Object|FBError}
  */
 function fb_resource_list_filter(var_args) {
@@ -2238,123 +2356,57 @@ function fb_resource_list_filter(var_args) {
 /**
  * Generate an error (or check if value is one)
  * Polymorphic function.
- * @param {String|FBError} text Error description, FBError, or FBResource object.
- * @param {String} id Error ID
+ * @param {String|FBError|FBErrorDefinition} data Error description, FBError, or FBResource object.
+ * @param {Number|Null} origin Error Origin (System, User)
  * @returns {FBError|Boolean} FBError is returned on error creation
  */
-function fb_error(text = null, id = 'FB_ERR_USER_GENERATED') {
+function fb_error(data = null, origin = null, function_name = null, function_arguments = null) {
+  if (data === null)
+    return false
+
   // Error check
-  if (text instanceof FBError)
+  if (data instanceof FBError)
     return true
 
+  // Empty error instance we set-up
+  let error = new FBError()
+
   // Resource check
-  if (text instanceof FBResource)
-    return fb_error(text.error)
+  if (data instanceof FBResource)
+    return fb_error(data.error)
+
+  let is_error_definition = data instanceof FBErrorDefinition
 
   // Built-in error check
-  if (text instanceof FBErrorDefinition)
-    return fb_error(text.text, text.id)
+  if (is_error_definition) {
+    error.text = data.text
+    error.id = data.id
+    error.origin = origin ?? FB_ORIGIN_SYSTEM
+  }
 
-  // Not text
-  if (typeof text !== 'string')
-    text = ''
+  // Not string
+  if (!is_error_definition && typeof data !== 'string')
+    data = ''
 
-  // Text can be null
-  if (text === null)
-    text = ''
-
-  text = text.trim()
-
-  // ID check
-  if (id instanceof FBErrorDefinition)
-    id = id.id
-  else if (id != 'FB_ERR_USER_GENERATED')
-    id = 'FB_ERR_UNSPECIFIED'
-
-  let error = new FBError(text, id)
+  // String inputs are always user generated
+  if (typeof data === 'string') {
+    data = data.trim()
+    error.text = data
+    error.origin = origin ?? FB_ORIGIN_USER
+    error.id = 'FB_ERR_USER_GENERATED'
+  }
 
   // Logging enabled
   if (fb_config('log_errors'))
     window.fb_errors.push(error)
 
+  if (function_name !== null)
+    error.function.name = function_name
+
+  if (function_arguments !== null)
+    error.function.arguments = function_arguments
+
   return error
-}
-
-/**
- * Get error value either by ID or Text
- * Internal function.
- * @param {String} value Error ID or Text
- * @returns {String|Null}
- */
-function fb_error_map_value(value = null) {
-  if (value === null)
-    return null
-
-  let errors = window.fb_error_ids
-
-  if (fb_error_exists(value))
-    return errors[value]
-
-  return null
-}
-
-/**
- * Translate Error ID to Text
- * @param {String|FBError} value Error ID
- * @returns {String|Null}
- */
-function fb_error_id(value = null) {
-  if (value === null)
-    return null
-
-  if (value instanceof FBError)
-    value = value.id
-
-  if (value.trim().length == 0)
-    return null
-
-  // Invalid ID
-  if (value.length < 7 || value.toUpperCase().substring(0, 7) !== 'FB_ERR_')
-    return null
-
-  return fb_error_map_value(value)
-}
-
-/**
- * Translate Error Text to ID
- * @param {String|FBError} value Error Text
- * @returns {String|Null}
- */
-function fb_error_text(value = null) {
-  if (value === null)
-    return null
-
-  if (value instanceof FBError)
-    value = value.text
-
-  if (value.trim().length == 0)
-    return null
-
-  // Passed ID instead of Text
-  if (value.length >= 7 && value.toUpperCase().substring(0, 7) === 'FB_ERR_')
-    return null
-
-  return fb_error_map_value(value)
-}
-
-/**
- * Check if error definition exists.
- * Internal function.
- * @param {String|FBError} id Error ID, Description, or FBError Object
- */
-function fb_error_exists(id = null) {
-  if (id === null)
-    return id
-
-  if (id instanceof FBError)
-    id = id.id
-
-  return id in window.fb_error_ids
 }
 
 /**
@@ -2417,28 +2469,49 @@ function fb_clear_errors() {
 }
 
 /**
- * Describe error IDs to their descriptions and vice-versa
- * @param {String|FBError} id Error ID, Description, or FBError Object
- * @returns {String|null}
+ * Describe the text tied to an Error ID.
+ * Don't use this to return user-generated error 'text' contents,
+ * that's not how it works.
+ * @param {String|FBError|FBErrorDefinition|FBResource} data Error ID, FBError, FBErrorDefinition, or FBResource Object
+ * @returns {String} Empty string means could not describe the error
  */
-function fb_describe_error(id = null) {
-  if (id === null)
-    return id
+function fb_describe_error(data = null) {
+  if (data === null)
+    return ''
 
-  if (id instanceof FBError)
-    id = id.id
+  if (data instanceof FBErrorDefinition)
+    return data.text
 
-  if (!fb_error_exists(id))
-    return null
+  if (data instanceof FBError)
+    return fb_describe_error(data.id)
 
-  let errors = window.fb_error_ids
+  if (data instanceof FBResource)
+    return fb_describe_error(data.error)
 
-  // value -> key
-  if (id.toUpperCase().substring(0, 7) !== 'FB_ERR_')
-    return errors[errors[id]]
+  if (typeof data !== 'string')
+    return ''
 
-  // key -> value
-  return errors[id]
+  if (data.length < 7 || data.toUpperCase().substring(0, 7) != 'FB_ERR_')
+    return ''
+
+  let errors = window.fb_error_defs
+
+  if (data in errors && errors[data] instanceof FBErrorDefinition && 'text' in errors[data])
+    return errors[data].text
+
+  return ''
+}
+
+/**
+ * Truncate numbers in function arguments.
+ * @param {object} args Reference to the arguments inside a function
+ * @returns {undefined}
+ */
+function fb_trunc_args(args) {
+  if (typeof args === 'object')
+    for (let k in args)
+      if (typeof args[k] === 'number')
+        args[k] = Math.trunc(args[k])
 }
 
 /**
@@ -2468,4 +2541,27 @@ function time() {
  */
 function time_precise() {
   return +Date.now()
+}
+
+/**
+ * Pseudo-random number generator
+ * @returns {number}
+ */
+function rand() {
+  let count = 10
+  let accum = ''
+
+  while (1) {
+    let num = Math.random() * 10 | 0
+
+    if (0 >= num)
+      continue
+
+    accum += num
+
+    if (!--count)
+      break
+  }
+
+  return +accum
 }
