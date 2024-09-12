@@ -3,7 +3,7 @@
 // License: WTFPL v2 (See license.txt)
 // Project: https://github.com/imshvc/framebuffer-js
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-09-11 11:01 PM
+// Updated: 2024-09-12 07:35 AM
 
 // Calendar Versioning (CalVer)
 //
@@ -12,7 +12,7 @@
 // See 3: https://en.wikipedia.org/wiki/ISO_8601#Calendar_dates
 const FB_VERSION_YEAR = 2024
 const FB_VERSION_MONTH = 9
-const FB_VERSION_DAY = 11
+const FB_VERSION_DAY = 12
 
 // Origin types (useful for logging, errors, etc)
 var FB_ORIGIN_SYSTEM = 0
@@ -61,6 +61,12 @@ var fb_canvas_context_attributes = {
   // (instead of hardware accelerated) 2D canvas and can save memory
   // when calling 'getImageData()' frequently.
   willReadFrequently: true,
+
+  /* TODO: Test these in 2D *
+  preserveDrawingBuffer: false,
+  antialias: false,
+  depth: false,
+  /* ---------------------- */
 }
 
 // Dimension constraints
@@ -150,8 +156,9 @@ var fb_errors = []
 var fb_config_map_keys = [
   'alpha',
   'defer',
-  'log_errors',
-  'use_resource_list',
+  'error_log',
+  'resource_list',
+  'desync',
 ]
 
 // Configuration map
@@ -201,7 +208,7 @@ var fb_config_map = {
   },
 
   // Log errors by fb_error()
-  log_errors: {
+  error_log: {
     allowed: [0, 1, false, true],
     default: 0,
     value: 0,
@@ -215,7 +222,7 @@ var fb_config_map = {
   // Use 'fb_resource_list' as an array of
   // resources created throughout the script
   // lifetime
-  use_resource_list: {
+  resource_list: {
     allowed: [0, 1, false, true],
     default: 0,
     value: 0,
@@ -223,6 +230,20 @@ var fb_config_map = {
     // Private methods
     _set: function(value, parent) {
       parent.value = value
+    }
+  },
+
+  // Canvas 2D Context Desynchronization
+  // Some browsers require this to be disabled.
+  desync: {
+    allowed: [0, 1, false, true],
+    default: 0,
+    value: 0,
+
+    // Private methods
+    _set: function(value, parent) {
+      parent.value = value
+      fb_canvas_context_attributes.desynchronized = value
     }
   },
 }
@@ -2332,7 +2353,7 @@ function fb_data_url(resource = null) {
  */
 function fb_resource_list_add(resource = null) {
   // Disabled by configuration
-  if (!fb_config('use_resource_list'))
+  if (!fb_config('resource_list'))
     return false
 
   if (!fb_valid(resource))
@@ -2349,7 +2370,7 @@ function fb_resource_list_add(resource = null) {
  * @returns {Object|FBError}
  */
 function fb_resource_list_filter(var_args) {
-  if (!fb_config('use_resource_list'))
+  if (!fb_config('resource_list'))
     return
 }
 
@@ -2397,7 +2418,7 @@ function fb_error(data = null, origin = null, function_name = null, function_arg
   }
 
   // Logging enabled
-  if (fb_config('log_errors'))
+  if (fb_config('error_log'))
     window.fb_errors.push(error)
 
   if (function_name !== null)
@@ -2454,7 +2475,7 @@ function fb_get_last_error() {
   if (errors.length == 0)
     return null
 
-  if (!fb_config('log_errors'))
+  if (!fb_config('error_log'))
     return null
 
   return errors[errors.length - 1]

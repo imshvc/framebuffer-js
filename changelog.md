@@ -1,5 +1,13 @@
 # Changelog
 
+# 2024-09-12
+
+- Added `desync` configuration flag to control the Canvas 2D Context Attribute field `desynchronized` which may cause rendering issues on some versions of browsers.
+- Changed configuration key `log_errors` to `error_log`
+- Changed configuration key `use_resource_list` to `resource_list`
+
+---
+
 # 2024-09-11
 
 - Added `FB_ERR_BAD_RESOURCE_STRUCTURE` for malformed resource objects.
@@ -17,7 +25,7 @@
 - Changed `fb_error_ids` to `fb_error_defs`.
 - Changed `fb_draw` to use canvas built-in methods for updating pixels (no need for loops, faster).
 - Fixed `fb_draw`, truncate all integers to prevent float precision error.
-- Fixed error definition `FB_ERR_BAD_HEIGHT` and `FB_ERR_BAD_HEIGHT` the same.
+- Fixed error definition `FB_ERR_BAD_WIDTH` and `FB_ERR_BAD_HEIGHT` the same.
 - Removed bi-directional lookup of error definitions - unnecessary complexity.
 - Removed function: `fb_error_text` - Translate Error Text to ID.
 - Removed function: `fb_error_id` in favor of `fb_describe_error`.
