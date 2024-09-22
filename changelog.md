@@ -2,14 +2,26 @@
 
 # 2024-09-22
 
-- Improved JSDoc documentation - still work left to do.
-- Refactored comments so they are more concise and don't deviate from explanation.
-- Ending lines with a semi-colon (;) to prevent JavaScript automatic semi-colon insertion (ASI) bugs.
-- General refactoring has been performed to improve code readability and maintainability. This includes renaming variables for clarity and restructuring some function logic to follow best practices.
-- Added `is_ascii` - Is the string ASCII (7-bit)
-- Added `is_special` - Character is not a number nor a letter. It's outside those ranges.
-- Added `is_alpha` - Character is an alphabet letter
-- Added `is_digit` - Character is a number
+## Added
+- Added `is_ascii`: Determines if a string is ASCII (7-bit).
+- Added `is_special`: Identifies characters that are neither numbers nor letters.
+- Added `is_alpha`: Checks if a character is an alphabet letter.
+- Added `is_digit`: Checks if a character is a number.
+
+## Changed
+- Changed JSDoc documentation to enhance clarity (ongoing).
+- Changed comments to be more concise and focused.
+
+## Fixed
+- Fixed automatic semicolon insertion (ASI) issues by ensuring all lines end with a semicolon (`;`).
+
+## Removed
+- None. 
+
+## Code Quality
+- Conducted general refactoring to improve code readability and maintainability, including:
+  - Renaming variables for improved clarity.
+  - Restructuring function logic to align with best practices.
 
 # 2024-09-14
 
