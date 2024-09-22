@@ -1,6 +1,38 @@
 # Changelog
 
-# 2024-09-12
+# 2024-09-22
+
+- Improved JSDoc documentation - still work left to do.
+- Refactored comments so they are more concise and don't deviate from explanation.
+- Ending lines with a semi-colon (;) to prevent JavaScript automatic semi-colon insertion (ASI) bugs.
+- General refactoring has been performed to improve code readability and maintainability. This includes renaming variables for clarity and restructuring some function logic to follow best practices.
+- Added `is_ascii` - Is the string ASCII (7-bit)
+- Added `is_special` - Character is not a number nor a letter. It's outside those ranges.
+- Added `is_alpha` - Character is an alphabet letter
+- Added `is_digit` - Character is a number
+
+# 2024-09-14
+
+- Added: function `fb_trim` - Trim empty space around the image
+- Added: function `fb_log` - Console logging, with colors!
+- Added: function `safe_div` - Safe division.
+- Added: function `lerp` for compatibility - Linear interpolation
+- Added: function `fb_getpos` for compatibility - Get X and Y position of a pixel in a 32-bit image
+- Changed: function `fb_clear` 2nd parameter can be passed an integer representing RGB as in HEX (e.g. 0xFF0000 for red)
+- Added: function `fb_rgb` - Convert various color representations to a color format understood by the library.
+- Removed: function `fb_trunc_args` as it's not feasible until JavaScript implements pass-by-reference.
+
+---
+
+# 2024-09-12 (release 2)
+
+- Changed: JSDoc major cleanup
+- Fixed: Set canvas context attribute field `desynchronized` to `false` so that faulty Chrome browsers can render the image. This option is still toggleable through the `desync` configuration key via the `fb_config` function.
+- 
+
+---
+
+# 2024-09-12 (release 1)
 
 - Added `desync` configuration flag to control the Canvas 2D Context Attribute field `desynchronized` which may cause rendering issues on some versions of browsers.
 - Changed configuration key `log_errors` to `error_log`
