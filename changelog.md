@@ -1,5 +1,14 @@
 # Changelog
 
+---
+
+# 2024-09-29
+
+## Added
+- 155 color definitions (See FB_COLOR_ constants)
+
+---
+
 # 2024-09-22
 
 ## Added
@@ -22,6 +31,8 @@
 - Conducted general refactoring to improve code readability and maintainability, including:
   - Renaming variables for improved clarity.
   - Restructuring function logic to align with best practices.
+
+---
 
 # 2024-09-14
 
