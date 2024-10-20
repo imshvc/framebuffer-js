@@ -3,7 +3,7 @@
 // License: WTFPL v2 (See license.txt)
 // Project: https://github.com/imshvc/framebuffer-js
 // Created: 2024-05-01 08:34 PM
-// Updated: 2024-09-29 01:35 PM
+// Updated: 2024-10-20 09:16 AM
 
 // Calendar Versioning (CalVer)
 //
@@ -11,8 +11,8 @@
 // See 2: https://stripe.com/blog/api-versioning
 // See 3: https://en.wikipedia.org/wiki/ISO_8601#Calendar_dates
 const FB_VERSION_YEAR  = 2024;
-const FB_VERSION_MONTH = 9;
-const FB_VERSION_DAY   = 29;
+const FB_VERSION_MONTH = 10;
+const FB_VERSION_DAY   = 20;
 
 // Origin types (useful for logging, errors, etc)
 const FB_ORIGIN_SYSTEM = 0; // Result originates from system (library) code.
@@ -446,7 +446,7 @@ var fb_config_map = {
  * Create a Framebuffer Resource
  * @param {number} width Width
  * @param {number} height Height
- * @returns {Object} Framebuffer Resource
+ * @returns {FBResource} Framebuffer Resource
  */
 function fb_create(width = 0, height = 0) {
   let FN_NAME = 'fb_create';
